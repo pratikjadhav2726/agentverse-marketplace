@@ -14,7 +14,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 409 })
     }
 
-    const newUser = db.users.create({ email, name, role })
+    const newUser = db.users.create({
+      email,
+      name,
+      role,
+      credits: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
 
     // Don't send the password back to the client
     const { ...userWithoutPassword } = newUser

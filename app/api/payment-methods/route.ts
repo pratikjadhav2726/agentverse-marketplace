@@ -11,8 +11,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Find customer by userId
-    const customers = await stripe.customers.list({
-      metadata: { userId },
+    const customers = await stripe.customers.search({
+      query: `metadata['userId']:'${userId}'`,
       limit: 1,
     })
 
@@ -57,8 +57,8 @@ export async function POST(request: NextRequest) {
 
     // Find or create customer
     let customer
-    const customers = await stripe.customers.list({
-      metadata: { userId },
+    const customers = await stripe.customers.search({
+      query: `metadata['userId']:'${userId}'`,
       limit: 1,
     })
 

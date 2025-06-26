@@ -14,6 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Save, Upload, Plus, X, Bot, Code, FileText, DollarSign, Info } from "lucide-react"
 
+type Example = {
+  input: string
+  output: string
+  description: string
+}
+
 export default function NewAgentPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
@@ -36,17 +42,11 @@ export default function NewAgentPage() {
       requirements: "",
     },
     pricing: {
-      type: "one-time" as "one-time" | "subscription",
       amount: "",
-      currency: "usd",
-      interval: "month" as "month" | "year",
-      freeTrialDays: "",
     },
     documentation: {
       readme: "",
-      examples: "",
-      apiDocs: "",
-      changelog: "",
+      examples: [] as Example[],
     },
   })
 
@@ -105,18 +105,61 @@ export default function NewAgentPage() {
     }))
   }
 
+  const handleExampleChange = (index: number, field: keyof Example, value: string) => {
+    setAgentData((prev) => {
+      const newExamples = [...prev.documentation.examples]
+      newExamples[index] = { ...newExamples[index], [field]: value }
+      return {
+        ...prev,
+        documentation: {
+          ...prev.documentation,
+          examples: newExamples,
+        },
+      }
+    })
+  }
+
+  const addExample = () => {
+    setAgentData((prev) => ({
+      ...prev,
+      documentation: {
+        ...prev.documentation,
+        examples: [...prev.documentation.examples, { input: "{}", output: "{}", description: "" }],
+      },
+    }))
+  }
+
+  const removeExample = (index: number) => {
+    setAgentData((prev) => ({
+      ...prev,
+      documentation: {
+        ...prev.documentation,
+        examples: prev.documentation.examples.filter((_, i) => i !== index),
+      },
+    }))
+  }
+
   const handleSubmit = async (asDraft = false) => {
     setIsSubmitting(true)
     try {
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      const response = await fetch("/api/seller/agents", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(agentData),
+      })
 
-      console.log("Submitting agent:", { ...agentData, status: asDraft ? "draft" : "pending" })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to submit agent")
+      }
 
       // Redirect to agents list
       router.push("/seller/agents")
     } catch (error) {
       console.error("Failed to submit agent:", error)
+      // Here you would show a toast notification to the user
     } finally {
       setIsSubmitting(false)
     }
@@ -384,39 +427,18 @@ export default function NewAgentPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5" />
-                Pricing Model
+                Pricing
               </CardTitle>
-              <CardDescription>Set your pricing strategy for the agent</CardDescription>
+              <CardDescription>Set the price for your agent in credits.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>Pricing Type *</Label>
-                <Select
-                  value={agentData.pricing.type}
-                  onValueChange={(value: "one-time" | "subscription") =>
-                    setAgentData((prev) => ({
-                      ...prev,
-                      pricing: { ...prev.pricing, type: value },
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="one-time">One-time Purchase</SelectItem>
-                    <SelectItem value="subscription">Subscription</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="amount">Price *</Label>
+                <Label htmlFor="price-amount">Price in Credits *</Label>
+                <div className="relative">
                   <Input
-                    id="amount"
+                    id="price-amount"
                     type="number"
-                    placeholder="99.99"
+                    placeholder="e.g., 100"
                     value={agentData.pricing.amount}
                     onChange={(e) =>
                       setAgentData((prev) => ({
@@ -424,79 +446,16 @@ export default function NewAgentPage() {
                         pricing: { ...prev.pricing, amount: e.target.value },
                       }))
                     }
+                    className="pl-8"
                   />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    CRED
+                  </span>
                 </div>
-
-                <div>
-                  <Label htmlFor="currency">Currency</Label>
-                  <Select
-                    value={agentData.pricing.currency}
-                    onValueChange={(value) =>
-                      setAgentData((prev) => ({
-                        ...prev,
-                        pricing: { ...prev.pricing, currency: value },
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="usd">USD</SelectItem>
-                      <SelectItem value="eur">EUR</SelectItem>
-                      <SelectItem value="gbp">GBP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {agentData.pricing.type === "subscription" && (
-                  <div>
-                    <Label htmlFor="interval">Billing Interval</Label>
-                    <Select
-                      value={agentData.pricing.interval}
-                      onValueChange={(value: "month" | "year") =>
-                        setAgentData((prev) => ({
-                          ...prev,
-                          pricing: { ...prev.pricing, interval: value },
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="month">Monthly</SelectItem>
-                        <SelectItem value="year">Yearly</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  This is the one-time cost for a user to execute your agent.
+                </p>
               </div>
-
-              {agentData.pricing.type === "subscription" && (
-                <div>
-                  <Label htmlFor="freeTrialDays">Free Trial Days (Optional)</Label>
-                  <Input
-                    id="freeTrialDays"
-                    type="number"
-                    placeholder="7"
-                    value={agentData.pricing.freeTrialDays}
-                    onChange={(e) =>
-                      setAgentData((prev) => ({
-                        ...prev,
-                        pricing: { ...prev.pricing, freeTrialDays: e.target.value },
-                      }))
-                    }
-                  />
-                </div>
-              )}
-
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  AgentVerse takes a 15% commission on all sales. You'll receive 85% of the listed price.
-                </AlertDescription>
-              </Alert>
             </CardContent>
           </Card>
         </TabsContent>
@@ -506,26 +465,18 @@ export default function NewAgentPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Documentation
+                Agent Documentation
               </CardTitle>
-              <CardDescription>Provide comprehensive documentation for your agent</CardDescription>
+              <CardDescription>
+                Provide detailed documentation and usage examples for your agent. Use Markdown for formatting.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="readme">README *</Label>
+                <Label htmlFor="readme">README.md *</Label>
                 <Textarea
                   id="readme"
-                  placeholder="# Agent Name
-
-## Overview
-Describe what your agent does...
-
-## Features
-- Feature 1
-- Feature 2
-
-## Usage
-How to use your agent..."
+                  placeholder="Detailed documentation about your agent, how to use it, etc."
                   value={agentData.documentation.readme}
                   onChange={(e) =>
                     setAgentData((prev) => ({
@@ -533,59 +484,59 @@ How to use your agent..."
                       documentation: { ...prev.documentation, readme: e.target.value },
                     }))
                   }
-                  className="min-h-[200px] font-mono text-sm"
+                  className="min-h-[300px] font-mono"
                 />
               </div>
 
               <div>
-                <Label htmlFor="examples">Usage Examples</Label>
-                <Textarea
-                  id="examples"
-                  placeholder="Provide code examples and use cases..."
-                  value={agentData.documentation.examples}
-                  onChange={(e) =>
-                    setAgentData((prev) => ({
-                      ...prev,
-                      documentation: { ...prev.documentation, examples: e.target.value },
-                    }))
-                  }
-                  className="min-h-[150px] font-mono text-sm"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="apiDocs">API Documentation</Label>
-                <Textarea
-                  id="apiDocs"
-                  placeholder="Detailed API documentation..."
-                  value={agentData.documentation.apiDocs}
-                  onChange={(e) =>
-                    setAgentData((prev) => ({
-                      ...prev,
-                      documentation: { ...prev.documentation, apiDocs: e.target.value },
-                    }))
-                  }
-                  className="min-h-[150px] font-mono text-sm"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="changelog">Changelog</Label>
-                <Textarea
-                  id="changelog"
-                  placeholder="## v1.0.0
-- Initial release
-- Feature A
-- Feature B"
-                  value={agentData.documentation.changelog}
-                  onChange={(e) =>
-                    setAgentData((prev) => ({
-                      ...prev,
-                      documentation: { ...prev.documentation, changelog: e.target.value },
-                    }))
-                  }
-                  className="min-h-[100px] font-mono text-sm"
-                />
+                <Label>Usage Examples</Label>
+                <div className="space-y-4">
+                  {agentData.documentation.examples.map((example, index) => (
+                    <Card key={index} className="p-4 bg-muted/50">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-semibold">Example {index + 1}</h4>
+                        <Button variant="ghost" size="icon" onClick={() => removeExample(index)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <Label htmlFor={`example-desc-${index}`}>Description</Label>
+                          <Input
+                            id={`example-desc-${index}`}
+                            placeholder="e.g., Summarize a short article"
+                            value={example.description}
+                            onChange={(e) => handleExampleChange(index, "description", e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`example-input-${index}`}>Input (JSON)</Label>
+                          <Textarea
+                            id={`example-input-${index}`}
+                            value={example.input}
+                            onChange={(e) => handleExampleChange(index, "input", e.target.value)}
+                            className="font-mono"
+                            rows={5}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`example-output-${index}`}>Output (JSON)</Label>
+                          <Textarea
+                            id={`example-output-${index}`}
+                            value={example.output}
+                            onChange={(e) => handleExampleChange(index, "output", e.target.value)}
+                            className="font-mono"
+                            rows={5}
+                          />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+                <Button variant="outline" size="sm" onClick={addExample} className="mt-4">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Example
+                </Button>
               </div>
             </CardContent>
           </Card>

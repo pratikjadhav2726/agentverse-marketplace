@@ -3,6 +3,7 @@ export interface User {
   email: string
   name: string
   role: "admin" | "seller" | "buyer"
+  credits: number
   createdAt: Date
   updatedAt: Date
   stripeCustomerId?: string
@@ -14,12 +15,7 @@ export interface Agent {
   description: string
   creator: string
   capabilities: string[]
-  pricing: {
-    type: "one-time" | "subscription"
-    amount: number
-    currency: string
-    interval?: "month" | "year"
-  }
+  pricing: Pricing
   sellerId: string
   status: "pending" | "approved" | "active" | "suspended" | "rejected" | "draft"
   a2aEndpoint: string
@@ -74,4 +70,26 @@ export interface Review {
   rating: number;
   comment: string;
   date: string;
+}
+
+export interface Transaction {
+  id: string
+  userId: string
+  type: "purchase" | "usage" | "payout" | "earning"
+  amount: number // credits or currency amount in cents
+  currency: string // 'credits' or 'usd'
+  description: string
+  createdAt: Date
+  relatedId?: string // e.g., agentId for usage, purchaseId for purchase
+}
+
+export interface Pricing {
+  amount: number
+  currency: "credits"
+  type: "one-time"
+}
+
+export interface Rating {
+  average: number
+  count: number
 }

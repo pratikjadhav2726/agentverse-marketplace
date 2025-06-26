@@ -8,38 +8,59 @@ import { Star, Zap, DollarSign, Users, ExternalLink } from "lucide-react"
 import type { Agent } from "@/lib/types"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/components/ui/use-toast"
 
 interface AgentCardProps {
   agent: Agent
-  onPurchase?: (agentId: string) => void
-  isPurchased?: boolean
 }
 
-export function AgentCard({ agent, onPurchase, isPurchased = false }: AgentCardProps) {
+export function AgentCard({ agent }: AgentCardProps) {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, refetchUser } = useAuth()
+  const { toast } = useToast()
 
-  const formatPrice = (amount: number, currency: string, type: string, interval?: string) => {
-    const price = new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-    }).format(amount / 100)
-
-    if (type === "subscription" && interval) {
-      return `${price}/${interval}`
-    }
-    return price
-  }
-
-  const handlePurchase = () => {
+  const handleUseAgent = async () => {
     if (!user) {
       router.push("/auth/signin")
       return
     }
 
-    // Redirect to Stripe checkout
-    const checkoutUrl = `/payment/checkout?agentId=${agent.id}&agentName=${encodeURIComponent(agent.name)}&amount=${agent.pricing.amount}&currency=${agent.pricing.currency}&type=${agent.pricing.type}`
-    router.push(checkoutUrl)
+    if ((user.credits ?? 0) < agent.pricing.amount) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You don't have enough credits to use this agent. Please purchase more.",
+        variant: "destructive",
+      })
+      router.push("/dashboard") // Redirect to buy credits
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/agents/${agent.id}/consume`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to use agent")
+      }
+
+      toast({
+        title: "Success!",
+        description: `You have successfully used the agent: ${agent.name}.`,
+      })
+
+      // Refetch user to update credit balance in the UI
+      if (refetchUser) {
+        await refetchUser()
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -99,7 +120,7 @@ export function AgentCard({ agent, onPurchase, isPurchased = false }: AgentCardP
             <div className="flex items-center">
               <DollarSign className="h-4 w-4 text-green-600" />
               <span className="font-semibold text-lg">
-                {formatPrice(agent.pricing.amount, agent.pricing.currency, agent.pricing.type, agent.pricing.interval)}
+                {agent.pricing.amount} Credits
               </span>
             </div>
             <Badge variant="outline">{agent.pricing.type}</Badge>
@@ -114,17 +135,9 @@ export function AgentCard({ agent, onPurchase, isPurchased = false }: AgentCardP
             View Details
           </Button>
         </Link>
-        {isPurchased ? (
-          <Button className="flex-1" variant="secondary" disabled>
-            Hired
-          </Button>
-        ) : (
-          <Button className="flex-1" onClick={handlePurchase} disabled={agent.status !== "active"}>
-            {agent.pricing.type === "subscription"
-              ? "Hire (Subscription)"
-              : "Hire (One-Time)"}
-          </Button>
-        )}
+        <Button className="flex-1" onClick={handleUseAgent} disabled={agent.status !== "active"}>
+          Hire for {agent.pricing.amount} Credits
+        </Button>
       </CardFooter>
     </Card>
   )

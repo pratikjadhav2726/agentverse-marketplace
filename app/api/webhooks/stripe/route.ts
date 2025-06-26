@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
 import { headers } from "next/headers"
+import { db } from "@/lib/mock-db"
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
@@ -55,13 +56,45 @@ async function handlePaymentSuccess(paymentIntent: any) {
 }
 
 async function handleCheckoutSuccess(session: any) {
-  // Handle successful subscription checkout
-  console.log("Checkout completed:", session.id)
+  const { userId, type, credits } = session.metadata
 
-  // Here you would:
-  // 1. Create subscription record in database
-  // 2. Grant access to the agent
-  // 3. Send welcome email
+  if (type === "credit_purchase") {
+    console.log(`Processing credit purchase for user ${userId}...`)
+    if (!userId || !credits) {
+      console.error("Missing userId or credits in session metadata")
+      return
+    }
+
+    const user = db.users.find((u) => u.id === userId)
+    if (!user) {
+      console.error(`User not found for id: ${userId}`)
+      return
+    }
+
+    const updatedUser = db.users.update(userId, {
+      credits: user.credits + Number(credits),
+    })
+
+    db.transactions.create({
+      userId,
+      type: "purchase",
+      amount: Number(credits),
+      currency: "credits",
+      description: `Purchased ${credits} credits`,
+      createdAt: new Date(),
+      relatedId: session.id,
+    })
+
+    console.log(`User ${userId} new credit balance: ${updatedUser?.credits}`)
+  } else {
+    // Handle successful subscription checkout
+    console.log("Checkout completed:", session.id)
+
+    // Here you would:
+    // 1. Create subscription record in database
+    // 2. Grant access to the agent
+    // 3. Send welcome email
+  }
 }
 
 async function handleSubscriptionPayment(invoice: any) {

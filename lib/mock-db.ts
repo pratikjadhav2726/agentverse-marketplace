@@ -1,260 +1,226 @@
-import type { User, Agent, Review } from "@/lib/types"
+import type { User, Agent, Review, Transaction } from "@/lib/types"
 import type { Workflow } from "@/lib/workflow-types"
 
 // --- Users ---
 const users: User[] = [
-  { id: "1", email: "admin@agentverse.com", name: "Admin User", role: "admin", createdAt: new Date(), updatedAt: new Date() },
-  { id: "2", email: "seller@agentverse.com", name: "Seller User", role: "seller", createdAt: new Date(), updatedAt: new Date() },
-  { id: "3", email: "buyer@agentverse.com", name: "Buyer User", role: "buyer", createdAt: new Date(), updatedAt: new Date() },
+  { id: "1", email: "admin@agentverse.com", name: "Admin User", role: "admin", credits: 1000, createdAt: new Date(), updatedAt: new Date() },
+  { id: "2", email: "seller@agentverse.com", name: "Seller User", role: "seller", credits: 500, createdAt: new Date(), updatedAt: new Date() },
+  { id: "3", email: "buyer@agentverse.com", name: "Buyer User", role: "buyer", credits: 100, createdAt: new Date(), updatedAt: new Date() },
 ]
 
 // --- Agents ---
-const agents: Agent[] = [
+export const MOCK_AGENTS: Agent[] = [
   {
-    id: "1",
-    name: "Data Analyst Pro",
-    creator: "Analytics Corp",
-    description:
-      "Advanced data analysis and visualization agent with machine learning capabilities. Perfect for business intelligence, statistical analysis, and data-driven decision making.",
-    capabilities: [
-      "Data Analysis",
-      "Machine Learning",
-      "Visualization",
-      "Statistical Modeling",
-      "Predictive Analytics",
-      "Data Cleaning",
-    ],
+    id: "agent-1",
+    name: "Content Summarizer Pro",
+    description: "Summarizes long articles and documents into concise, easy-to-read summaries.",
+    creator: "AI Content Inc.",
+    sellerId: "user-2",
+    capabilities: ["Content", "Analytics"],
     pricing: {
-      type: "subscription",
-      amount: 4999,
-      currency: "usd",
-      interval: "month",
+      amount: 50,
+      currency: "credits",
+      type: "one-time",
     },
-    sellerId: "seller1",
-    status: "active",
-    a2aEndpoint: "https://api.example.com/agents/data-analyst",
     ratings: {
       average: 4.8,
-      count: 127,
+      count: 120,
     },
-    metadata: {
-      version: "2.1.0",
-      lastUpdated: "2024-01-15",
-      category: "Analytics",
-      tags: ["data", "analytics", "ml", "visualization"],
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    documentation: `# Data Analyst Pro
+    status: "active",
+    a2aEndpoint: "https://api.example.com/agents/content-summarizer",
+    metadata: { version: "1.0" },
+    reviews: [],
+    documentation: `# Content Summarizer Pro
 
 ## Overview
-Data Analyst Pro is a comprehensive AI agent designed for advanced data analysis and visualization. It combines statistical analysis, machine learning, and data visualization capabilities to provide actionable insights from your data.
+This agent uses advanced NLP models to provide high-quality summaries of text-based content. It's ideal for quickly understanding articles, reports, and documents.
 
 ## Features
-- **Statistical Analysis**: Descriptive and inferential statistics
-- **Machine Learning**: Classification, regression, clustering
-- **Data Visualization**: Interactive charts and graphs
-- **Data Cleaning**: Automated data preprocessing
-- **Predictive Analytics**: Forecasting and trend analysis
+- Adjustable summary length (short, medium, long)
+- Supports various input formats (text, URL)
+- Extracts key sentences and concepts
 
 ## Input Schema
 \`\`\`json
 {
-  "data": "array|string", // CSV data or array of objects
-  "analysis_type": "string", // "descriptive", "predictive", "classification"
-  "target_column": "string", // For supervised learning
-  "visualization": "boolean" // Whether to generate charts
+  "content": "string", // The full text to summarize
+  "length": "short" | "medium" | "long" // Desired summary length
 }
 \`\`\`
 
 ## Output Schema
 \`\`\`json
 {
-  "analysis": {
-    "summary": "object",
-    "insights": "array",
-    "recommendations": "array"
-  },
-  "visualizations": "array",
-  "model_performance": "object"
+  "summary": "string",
+  "keywords": ["string"]
 }
-\`\`\``,
+\`\`\`
+`,
     examples: [
       {
+        description: "Summarize a short block of text.",
         input: {
-          data: "sales_data.csv",
-          analysis_type: "descriptive",
-          visualization: true,
+          content: "The quick brown fox jumps over the lazy dog. This sentence is used to demonstrate all the letters of the alphabet. It is a well-known pangram.",
+          length: "short",
         },
         output: {
-          analysis: {
-            summary: { total_sales: 125000, avg_order: 85.5, growth_rate: 0.15 },
-            insights: ["Sales increased 15% compared to last quarter", "Peak sales occur on weekends"],
-            recommendations: ["Focus marketing on weekend campaigns", "Expand high-performing product lines"],
-          },
-          visualizations: ["sales_trend_chart.png", "product_performance_bar.png"],
+          summary: "A sentence containing all letters of the alphabet, 'The quick brown fox jumps over the lazy dog,' is a famous pangram.",
+          keywords: ["pangram", "alphabet", "fox"],
         },
-        description: "Analyze sales data to identify trends and opportunities",
-      },
-      {
-        input: {
-          data: "customer_data.csv",
-          analysis_type: "classification",
-          target_column: "churn_risk",
-        },
-        output: {
-          analysis: {
-            summary: { accuracy: 0.89, precision: 0.85, recall: 0.92 },
-            insights: ["High-value customers have 23% lower churn risk", "Support tickets correlate with churn"],
-            recommendations: [
-              "Implement proactive support for at-risk customers",
-              "Create loyalty program for high-value segments",
-            ],
-          },
-          model_performance: {
-            auc: 0.91,
-            confusion_matrix: [
-              [850, 45],
-              [32, 173],
-            ],
-          },
-        },
-        description: "Predict customer churn risk using machine learning",
       },
     ],
-    reviews: [],
-  },
-  {
-    id: "2",
-    name: "Content Generator",
-    creator: "Contentify",
-    description:
-      "AI-powered content creation agent for blogs, social media, and marketing materials with SEO optimization.",
-    capabilities: [
-      "Content Writing",
-      "SEO Optimization",
-      "Social Media",
-      "Copywriting",
-      "Blog Posts",
-      "Marketing Copy",
-    ],
-    pricing: {
-      type: "one-time",
-      amount: 9999,
-      currency: "usd",
-    },
-    sellerId: "seller2",
-    status: "active",
-    a2aEndpoint: "https://api.example.com/agents/content-gen",
-    ratings: {
-      average: 4.6,
-      count: 89,
-    },
-    metadata: {
-      version: "1.8.2",
-      lastUpdated: "2024-01-12",
-      category: "Content",
-      tags: ["writing", "seo", "marketing", "social-media"],
-    },
     createdAt: new Date(),
     updatedAt: new Date(),
-    documentation: `# Content Generator
-
-## Overview
-Content Generator is an AI-powered writing assistant that creates high-quality content for various purposes including blog posts, social media, marketing copy, and more.
-
-## Features
-- **Multi-format Content**: Blog posts, social media, emails, ads
-- **SEO Optimization**: Keyword integration and optimization
-- **Brand Voice**: Maintains consistent tone and style
-- **Bulk Generation**: Create multiple variations
-- **Content Planning**: Editorial calendar suggestions
-
-## Input Schema
-\`\`\`json
-{
-  "topic": "string",
-  "content_type": "string", // "blog", "social", "email", "ad"
-  "tone": "string", // "professional", "casual", "friendly"
-  "length": "number", // Word count
-  "keywords": "array", // SEO keywords
-  "target_audience": "string"
-}
-\`\`\``,
-    examples: [
-      {
-        input: {
-          topic: "Benefits of Remote Work",
-          content_type: "blog",
-          tone: "professional",
-          length: 800,
-          keywords: ["remote work", "productivity", "work-life balance"],
-        },
-        output: {
-          content: "# The Transformative Benefits of Remote Work...",
-          seo_score: 85,
-          readability: "Grade 8",
-          word_count: 847,
-        },
-        description: "Generate SEO-optimized blog post about remote work",
-      },
-    ],
-    reviews: [
-      {
-        id: "1",
-        user: "David Park",
-        rating: 5,
-        comment:
-          "Amazing content quality! The SEO optimization features have improved our search rankings significantly.",
-        date: "2024-01-09",
-      },
-    ],
   },
   {
-    id: "3",
+    id: "agent-2",
     name: "Code Review Assistant",
-    creator: "DevTools Inc.",
-    description: "Automated code review and quality assurance agent for multiple programming languages. Your personal code QA expert.",
-    capabilities: ["Code Review", "Bug Detection", "Security Analysis", "Performance Optimization", "Best Practices"],
+    description: "Analyzes your code for potential bugs, security vulnerabilities, and style issues.",
+    creator: "DevTools LLC",
+    sellerId: "user-2",
+    capabilities: ["Development", "Code Review"],
     pricing: {
-      type: "subscription",
-      amount: 2999,
-      currency: "usd",
-      interval: "month",
+      amount: 25,
+      currency: "credits",
+      type: "one-time",
     },
-    sellerId: "2",
-    status: "active",
-    a2aEndpoint: "https://api.example.com/agents/code-review",
     ratings: {
-      average: 4.9,
-      count: 203,
+      average: 4.5,
+      count: 85,
     },
-    metadata: {
-      version: "1.5.0",
-      lastUpdated: "2024-02-01",
-      category: "Development",
-      tags: ["code", "review", "qa", "security"],
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    status: "active",
+    a2aEndpoint: "https://api.example.com/agents/code-reviewer",
+    metadata: { version: "2.1" },
+    reviews: [],
     documentation: `# Code Review Assistant
 
 ## Overview
-This agent performs automated code reviews to identify bugs, security vulnerabilities, and performance issues.
+This agent performs static analysis on your code to find common issues. It supports multiple languages and can be integrated into your CI/CD pipeline.
 
 ## Features
-- **Multi-language Support**: Python, JavaScript, Java, Go
-- **Security Scanning**: Detects common vulnerabilities (OWASP Top 10)
-- **Performance Profiling**: Identifies bottlenecks
-- **Best Practice Checks**: Enforces coding standards`,
+- Supports Python, JavaScript, and TypeScript
+- Checks for security vulnerabilities (e.g., OWASP Top 10)
+- Enforces coding style and best practices
+`,
     examples: [
       {
-        input: { code: "...", language: "python" },
-        output: { issues: [{ line: 15, severity: "High", message: "SQL Injection vulnerability" }] },
-        description: "Review a Python script for security flaws.",
+        description: "Review a simple Python function for issues.",
+        input: {
+          language: "python",
+          code: "def add(a, b):\n  return a + b",
+        },
+        output: {
+          issues: [
+            {
+              line: 1,
+              severity: "low",
+              message: "Missing docstring for public function.",
+            },
+          ],
+        },
       },
     ],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "agent-3",
+    name: "Data Visualization Bot",
+    description: "Creates insightful charts and graphs from your data sets.",
+    creator: "DataViz Experts",
+    sellerId: "user-3",
+    capabilities: ["Data Analysis", "Analytics"],
+    pricing: {
+      amount: 100,
+      currency: "credits",
+      type: "one-time",
+    },
+    ratings: {
+      average: 4.9,
+      count: 210,
+    },
+    status: "active",
+    a2aEndpoint: "https://api.example.com/agents/data-viz",
+    metadata: { version: "1.5" },
     reviews: [],
+    documentation: `# Data Visualization Bot
+
+## Overview
+Turns your raw data into beautiful, easy-to-understand charts. Supports various chart types and data formats.
+
+## Features
+- Supported chart types: bar, line, pie, scatter
+- Input data as CSV or JSON array
+- Customizable colors and labels
+`,
+    examples: [
+      {
+        description: "Create a bar chart from a simple JSON dataset.",
+        input: {
+          chartType: "bar",
+          data: [
+            { "category": "A", "value": 30 },
+            { "category": "B", "value": 50 },
+            { "category": "C", "value": 20 }
+          ],
+          "options": {
+            "title": "Category Values"
+          }
+        },
+        output: {
+          "chartUrl": "https://example.com/charts/12345.png",
+          "chartType": "bar"
+        },
+      },
+    ],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "agent-4",
+    name: "Social Media Post Generator",
+    description: "Generates engaging posts for various social media platforms.",
+    creator: "Socially AI",
+    sellerId: "user-3",
+    capabilities: ["Content Writing", "Content"],
+    pricing: {
+      amount: 15,
+      currency: "credits",
+      type: "one-time",
+    },
+    ratings: {
+      average: 4.3,
+      count: 95,
+    },
+    status: "active",
+    a2aEndpoint: "https://api.example.com/agents/social-media",
+    metadata: { version: "3.0" },
+    reviews: [],
+    documentation: `# Social Media Post Generator
+
+## Overview
+Generates engaging posts tailored for different social media platforms.
+
+## Features
+- Supports Twitter, Facebook, and LinkedIn
+- Can include relevant hashtags
+- Tone adjustment (professional, casual, witty)
+`,
+    examples: [
+      {
+        description: "Generate a witty Twitter post.",
+        input: {
+          platform: "twitter",
+          topic: "The importance of coffee for developers",
+          tone: "witty"
+        },
+        output: {
+          post: "Roses are red, violets are blue, syntax errors are hard, and so is life without coffee. #devlife #coding #coffee"
+        }
+      }
+    ],
+    createdAt: new Date(),
+    updatedAt: new Date(),
   },
 ]
 
@@ -268,9 +234,12 @@ const purchases = [
 // --- Workflows ---
 const workflows: Workflow[] = []
 
+// --- Transactions ---
+const transactions: Transaction[] = []
+
 // --- Standalone Database Functions ---
 export function getAgentById(id: string): Agent | undefined {
-  return agents.find((agent) => agent.id === id)
+  return MOCK_AGENTS.find((agent) => agent.id === id)
 }
 
 export function addReviewForAgent(
@@ -303,17 +272,47 @@ export const db = {
   users: {
     find: (predicate: (user: User) => boolean) => users.find(predicate),
     create: (data: Omit<User, "id">) => {
-      const newUser: User = { id: `${users.length + 1}`, ...data }
+      const { credits, ...restData } = data
+      const newUser: User = { id: `${users.length + 1}`, credits: credits || 0, ...restData }
       users.push(newUser)
       return newUser
     },
+    update: (id: string, data: Partial<Omit<User, "id">>) => {
+      const index = users.findIndex((u) => u.id === id)
+      if (index !== -1) {
+        users[index] = { ...users[index], ...data, updatedAt: new Date() }
+        return users[index]
+      }
+      return null
+    },
   },
   agents: {
-    find: (predicate: (agent: Agent) => boolean) => agents.find(predicate),
-    getAll: () => agents,
+    find: (predicate: (agent: Agent) => boolean) => MOCK_AGENTS.find(predicate),
+    getAll: () => MOCK_AGENTS,
+    create: (data: Omit<Agent, "id" | "createdAt" | "updatedAt" | "status" | "ratings" | "reviews"> & Partial<Agent>) => {
+      const newAgent: Agent = {
+        id: `agent-${Math.random().toString(36).substr(2, 9)}`,
+        status: "pending",
+        ratings: { average: 0, count: 0 },
+        reviews: [],
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      MOCK_AGENTS.push(newAgent)
+      return newAgent
+    },
   },
   purchases: {
     findForUser: (userId: string) => purchases.filter((p) => p.userId === userId),
+  },
+  transactions: {
+    findForUser: (userId: string) => transactions.filter((t) => t.userId === userId),
+    create: (data: Omit<Transaction, "id">) => {
+      const newTransaction: Transaction = { id: `txn_${Date.now()}`, ...data }
+      transactions.push(newTransaction)
+      return newTransaction
+    },
   },
   workflows: {
     find: (predicate: (workflow: Workflow) => boolean) => workflows.find(predicate),

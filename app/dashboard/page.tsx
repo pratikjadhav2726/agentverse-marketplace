@@ -1,24 +1,83 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { StatsCard } from "@/components/dashboard/stats-card"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { ShoppingCart, DollarSign, TrendingUp, Users, Bot, Activity, Plus, ExternalLink } from "lucide-react"
+import { ShoppingCart, DollarSign, TrendingUp, Users, Bot, Activity, Plus, ExternalLink, CreditCard } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function DashboardPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { toast } = useToast()
+
+  const [creditAmount, setCreditAmount] = useState(100)
+  const [isBuyingCredits, setIsBuyingCredits] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth/signin")
     }
   }, [user, loading, router])
+
+  useEffect(() => {
+    if (searchParams.get("purchase_success")) {
+      toast({
+        title: "Credits Purchased!",
+        description: `Successfully added ${searchParams.get("amount")} credits to your account.`,
+        variant: "default",
+      })
+      // Clean up URL
+      router.replace("/dashboard", undefined)
+    }
+  }, [searchParams, toast, router])
+
+  const handleBuyCredits = async () => {
+    const currentUser = user
+    if (!currentUser) return
+
+    setIsBuyingCredits(true)
+    try {
+      const response = await fetch("/api/credits/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.id,
+          email: currentUser.email,
+          amount: creditAmount,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to create checkout session")
+      }
+
+      const { sessionId } = await response.json()
+      const stripe = (await import("@stripe/stripe-js")).loadStripe(
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+      )
+
+      if (stripe) {
+        ;(await stripe).redirectToCheckout({ sessionId })
+      }
+    } catch (error) {
+      console.error("Failed to buy credits:", error)
+      toast({
+        title: "Error",
+        description: "Failed to initiate credit purchase. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsBuyingCredits(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -77,6 +136,12 @@ export default function DashboardPage() {
         {userRole === "buyer" && (
           <>
             <StatsCard
+              title="Your Credits"
+              value={user.credits}
+              icon={CreditCard}
+              description="Available credits for agents"
+            />
+            <StatsCard
               title="Purchased Agents"
               value={buyerStats.purchasedAgents}
               icon={Bot}
@@ -105,6 +170,12 @@ export default function DashboardPage() {
 
         {userRole === "seller" && (
           <>
+            <StatsCard
+              title="Your Credits"
+              value={user.credits}
+              icon={CreditCard}
+              description="Available for use or payout"
+            />
             <StatsCard
               title="Listed Agents"
               value={sellerStats.listedAgents}
@@ -162,9 +233,38 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Buy Credits */}
+        {userRole !== "admin" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Buy Credits</CardTitle>
+              <CardDescription>Add credits to your account to use agents.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-4">
+                <CreditCard className="h-5 w-5 text-muted-foreground" />
+                <span className="font-bold text-2xl">{creditAmount}</span>
+                <span className="text-muted-foreground">Credits</span>
+              </div>
+              <Input
+                type="number"
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(Number(e.target.value))}
+                min="10"
+                step="10"
+                className="mb-4"
+              />
+              <Button onClick={handleBuyCredits} className="w-full" disabled={isBuyingCredits}>
+                {isBuyingCredits ? "Processing..." : `Buy for $${(creditAmount * 0.1).toFixed(2)}`}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center mt-2">$0.10 per credit</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Recent Activity */}
-        <Card>
+        <Card className={userRole !== "admin" ? "lg:col-span-2" : "lg:col-span-3"}>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
             <CardDescription>
