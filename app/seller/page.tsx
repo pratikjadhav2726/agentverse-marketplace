@@ -1,45 +1,60 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Bot, CreditCard, DollarSign, Package } from "lucide-react"
-import type { Transaction } from "@/lib/types"
-import { db } from "@/lib/mock-db"
+import { Button } from "@/components/ui/button"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
+import { Transaction } from "@/lib/types"
+import { useRouter } from "next/navigation"
 
 export default function SellerDashboard() {
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [stats, setStats] = useState({ totalAgents: 0, totalEarnings: 0 })
+  const [loading, setLoading] = useState(true)
+  const [totalEarnings, setTotalEarnings] = useState(0)
   const [payoutAmount, setPayoutAmount] = useState("")
   const { toast } = useToast()
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "seller")) {
+    if (!authLoading && (!user || user.role !== "seller")) {
       router.push("/dashboard")
+      return
     }
 
     if (user) {
-      // Mock data fetching
-      const userTransactions = db.transactions.findForUser(user.id)
-      const userAgents = db.agents.getAll().filter((a) => a.sellerId === user.id)
-      const totalEarnings = userTransactions
-        .filter((t) => t.type === "earning")
-        .reduce((sum, t) => sum + t.amount, 0)
+      const fetchSellerData = async () => {
+        setLoading(true)
+        try {
+          const res = await fetch("/api/seller/transactions")
+          if (!res.ok) {
+            throw new Error("Failed to fetch transactions")
+          }
+          const data: Transaction[] = await res.json()
+          setTransactions(data)
 
-      setTransactions(userTransactions.slice(0, 5)) // show latest 5
-      setStats({
-        totalAgents: userAgents.length,
-        totalEarnings,
-      })
+          const earnings = data
+            .filter((tx) => tx.type === "earning")
+            .reduce((acc, tx) => acc + tx.amount, 0)
+          setTotalEarnings(earnings)
+        } catch (error) {
+          console.error(error)
+          toast({
+            title: "Error",
+            description: "Could not load your transactions.",
+            variant: "destructive",
+          })
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchSellerData()
     }
-  }, [user, loading, router])
+  }, [user, authLoading, router, toast])
 
   const handlePayoutRequest = async () => {
     if (!user || !payoutAmount) return
@@ -77,107 +92,110 @@ export default function SellerDashboard() {
     setPayoutAmount("")
   }
 
-  if (loading || !user || user.role !== "seller") {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-      </div>
-    )
+  if (authLoading || !user) {
+    return <div>Loading...</div>
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Seller Dashboard</h1>
-        <p className="text-muted-foreground">Manage your AI agents and track your earnings</p>
+        <p className="text-muted-foreground">Welcome back, {user.name}!</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Credit Balance</CardTitle>
+            <CardDescription>Your current available credits for payout.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalEarnings} Credits</div>
-            <p className="text-xs text-muted-foreground">Equivalent to ${(stats.totalEarnings * 0.1).toFixed(2)}</p>
+            <div className="text-2xl font-bold">{user.credits?.toLocaleString() ?? 0} Credits</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Total Earnings</CardTitle>
+            <CardDescription>Total credits earned from agent sales.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{user.credits} Credits</div>
-            <p className="text-xs text-muted-foreground">Available for payout or use</p>
+            <div className="text-2xl font-bold">{totalEarnings.toLocaleString()} Credits</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Listed Agents</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalAgents}</div>
-            <p className="text-xs text-muted-foreground">Active on the marketplace</p>
-          </CardContent>
-        </Card>
+        {/* Other stats cards can go here */}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>Your latest credit earnings.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {transactions.length > 0 ? (
-              <div className="space-y-4">
-                {transactions.map((t) => (
-                  <div key={t.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{t.description}</p>
-                      <p className="text-sm text-muted-foreground">{new Date(t.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    <Badge variant={t.type === "earning" ? "default" : "destructive"}>
-                      {t.amount > 0 ? `+${t.amount}` : t.amount} {t.currency}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No recent transactions.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Payouts</CardTitle>
-            <CardDescription>Withdraw your earnings.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4">
-                <Input
-                  type="number"
-                  placeholder="Enter amount"
-                  value={payoutAmount}
-                  onChange={(e) => setPayoutAmount(e.target.value)}
-                  className="max-w-xs"
-                />
-                <Button onClick={handlePayoutRequest} disabled={!payoutAmount || !user || (user.credits ?? 0) === 0}>
-                  Request Payout
-                </Button>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Payouts will be processed via Stripe Connect. Ensure your account is set up.
-              </p>
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Request Payout</CardTitle>
+          <CardDescription>Request a payout of your available credits.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4">
+              <Input
+                type="number"
+                placeholder="Enter amount"
+                value={payoutAmount}
+                onChange={(e) => setPayoutAmount(e.target.value)}
+                className="max-w-xs"
+              />
+              <Button onClick={handlePayoutRequest} disabled={!payoutAmount || !user || (user.credits ?? 0) === 0}>
+                Request Payout
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <p className="text-sm text-muted-foreground">
+              Payouts will be processed via Stripe Connect. Ensure your account is set up.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Transactions</CardTitle>
+          <CardDescription>Your recent sales and payouts.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <p>Loading transactions...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactions.length > 0 ? (
+                  transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell>{new Date(tx.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge variant={tx.type === "earning" ? "default" : "secondary"}>{tx.type}</Badge>
+                      </TableCell>
+                      <TableCell>{tx.description}</TableCell>
+                      <TableCell className="text-right">
+                        {tx.type === "earning" ? "+" : "-"}
+                        {tx.amount} {tx.currency}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center">
+                      No transactions found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

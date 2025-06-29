@@ -1,36 +1,55 @@
-import type { User, Agent, Review, Transaction } from "@/lib/types"
+import type { User, Agent, Review, Transaction, ApiUsage, Purchase } from "@/lib/types"
 import type { Workflow } from "@/lib/workflow-types"
 
-// --- Users ---
-const users: User[] = [
-  { id: "1", email: "admin@agentverse.com", name: "Admin User", role: "admin", credits: 1000, createdAt: new Date(), updatedAt: new Date() },
-  { id: "2", email: "seller@agentverse.com", name: "Seller User", role: "seller", credits: 500, createdAt: new Date(), updatedAt: new Date() },
-  { id: "3", email: "buyer@agentverse.com", name: "Buyer User", role: "buyer", credits: 100, createdAt: new Date(), updatedAt: new Date() },
+// In a real app, you'd use a proper database. For this mock, we'll use globalThis
+// to preserve state across hot reloads in development.
+
+declare global {
+  var mock_users: User[]
+  var mock_agents: Agent[]
+  var mock_reviews: Review[]
+  var mock_transactions: Transaction[]
+  var mock_api_usage: ApiUsage[]
+  var mock_purchases: Purchase[]
+}
+
+// --- Initial Data ---
+const initialUsers: User[] = [
+  {
+    id: "user_1",
+    name: "Alice",
+    email: "alice@example.com",
+    role: "buyer",
+    credits: 1000,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user_2",
+    name: "Bob",
+    email: "bob@example.com",
+    role: "seller",
+    credits: 500,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user_admin",
+    name: "Admin",
+    email: "admin@example.com",
+    role: "admin",
+    credits: 9999,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ]
 
-// --- Agents ---
-export const MOCK_AGENTS: Agent[] = [
+const initialAgents: Agent[] = [
   {
     id: "agent-1",
-    name: "Content Summarizer Pro",
-    description: "Summarizes long articles and documents into concise, easy-to-read summaries.",
-    creator: "AI Content Inc.",
-    sellerId: "user-2",
-    capabilities: ["Content", "Analytics"],
-    pricing: {
-      amount: 50,
-      currency: "credits",
-      type: "one-time",
-    },
-    ratings: {
-      average: 4.8,
-      count: 120,
-    },
-    status: "active",
-    a2aEndpoint: "https://api.example.com/agents/content-summarizer",
-    metadata: { version: "1.0" },
-    reviews: [],
-    documentation: `# Content Summarizer Pro
+    name: "Content Summarizer",
+    description: "Summarizes long texts into concise overviews.",
+    readme: `# Content Summarizer Pro
 
 ## Overview
 This agent uses advanced NLP models to provide high-quality summaries of text-based content. It's ideal for quickly understanding articles, reports, and documents.
@@ -56,43 +75,31 @@ This agent uses advanced NLP models to provide high-quality summaries of text-ba
 }
 \`\`\`
 `,
+    documentation: "Detailed documentation for Content Summarizer.",
+    avatar: "/placeholder.svg",
+    creator: "AI Content Inc.",
+    sellerId: "user_2",
+    capabilities: ["Content", "Analytics", "Summarization"],
+    status: "active",
+    pricing: { currency: "credits", amount: 10 },
     examples: [
       {
-        description: "Summarize a short block of text.",
-        input: {
-          content: "The quick brown fox jumps over the lazy dog. This sentence is used to demonstrate all the letters of the alphabet. It is a well-known pangram.",
-          length: "short",
-        },
-        output: {
-          summary: "A sentence containing all letters of the alphabet, 'The quick brown fox jumps over the lazy dog,' is a famous pangram.",
-          keywords: ["pangram", "alphabet", "fox"],
-        },
+        input: { text: "A long article about AI..." },
+        output: { summary: "AI is revolutionizing technology." },
       },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    reviews: [],
+    ratings: { average: 4.5, count: 25 },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    a2aEndpoint: "https://api.example.com/summarizer",
+    metadata: { version: "1.0" },
   },
   {
     id: "agent-2",
-    name: "Code Review Assistant",
-    description: "Analyzes your code for potential bugs, security vulnerabilities, and style issues.",
-    creator: "DevTools LLC",
-    sellerId: "user-2",
-    capabilities: ["Development", "Code Review"],
-    pricing: {
-      amount: 25,
-      currency: "credits",
-      type: "one-time",
-    },
-    ratings: {
-      average: 4.5,
-      count: 85,
-    },
-    status: "active",
-    a2aEndpoint: "https://api.example.com/agents/code-reviewer",
-    metadata: { version: "2.1" },
-    reviews: [],
-    documentation: `# Code Review Assistant
+    name: "Image Recognition API",
+    description: "Identifies objects and concepts in images.",
+    readme: `# Code Review Assistant
 
 ## Overview
 This agent performs static analysis on your code to find common issues. It supports multiple languages and can be integrated into your CI/CD pipeline.
@@ -102,26 +109,25 @@ This agent performs static analysis on your code to find common issues. It suppo
 - Checks for security vulnerabilities (e.g., OWASP Top 10)
 - Enforces coding style and best practices
 `,
+    documentation: "Detailed documentation for Image Recognition API.",
+    avatar: "/placeholder.svg",
+    creator: "Vision Systems",
+    sellerId: "user_2",
+    capabilities: ["Vision", "AI", "Images"],
+    status: "active",
+    pricing: { currency: "credits", amount: 25 },
     examples: [
       {
-        description: "Review a simple Python function for issues.",
-        input: {
-          language: "python",
-          code: "def add(a, b):\n  return a + b",
-        },
-        output: {
-          issues: [
-            {
-              line: 1,
-              severity: "low",
-              message: "Missing docstring for public function.",
-            },
-          ],
-        },
+        input: { imageUrl: "http://example.com/image.jpg" },
+        output: { tags: ["nature", "mountain", "lake"] },
       },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    reviews: [],
+    ratings: { average: 4.8, count: 42 },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    a2aEndpoint: "https://api.example.com/image-recognition",
+    metadata: { version: "2.1" },
   },
   {
     id: "agent-3",
@@ -173,8 +179,8 @@ Turns your raw data into beautiful, easy-to-understand charts. Supports various 
         },
       },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: "agent-4",
@@ -219,123 +225,147 @@ Generates engaging posts tailored for different social media platforms.
         }
       }
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
 ]
 
-// --- Purchases ---
-const purchases = [
-  { purchaseId: "pur_1", userId: "3", agentId: "agent_1", purchaseDate: new Date(), type: "oneTime" },
-  { purchaseId: "pur_2", userId: "3", agentId: "agent_2", purchaseDate: new Date(), type: "subscription" },
-  { purchaseId: "pur_3", userId: "3", agentId: "agent_3", purchaseDate: new Date(), type: "oneTime" },
-]
-
-// --- Workflows ---
-const workflows: Workflow[] = []
-
-// --- Transactions ---
-const transactions: Transaction[] = []
-
-// --- Standalone Database Functions ---
-export function getAgentById(id: string): Agent | undefined {
-  return MOCK_AGENTS.find((agent) => agent.id === id)
+// --- Database Initialization ---
+if (process.env.NODE_ENV === "production") {
+  global.mock_users = initialUsers
+  global.mock_agents = initialAgents
+  global.mock_reviews = []
+  global.mock_transactions = []
+  global.mock_api_usage = []
+  global.mock_purchases = []
+} else {
+  if (!global.mock_users) {
+    global.mock_users = initialUsers
+  }
+  if (!global.mock_agents) {
+    global.mock_agents = initialAgents
+  }
+  if (!global.mock_reviews) {
+    global.mock_reviews = []
+  }
+  if (!global.mock_transactions) {
+    global.mock_transactions = []
+  }
+  if (!global.mock_api_usage) {
+    global.mock_api_usage = []
+  }
+  if (!global.mock_purchases) {
+    global.mock_purchases = []
+  }
 }
 
-export function addReviewForAgent(
-  agentId: string,
-  reviewData: Omit<Review, "id" | "date">
-): Review | null {
-  const agent = getAgentById(agentId)
-  if (!agent) {
-    return null
-  }
-
-  const newReview: Review = {
-    ...reviewData,
-    id: `${agent.reviews.length + 1}-${Date.now()}`,
-    date: new Date().toISOString().split("T")[0],
-  }
-
-  agent.reviews.unshift(newReview) // Add to the beginning of the array
-  agent.ratings.count += 1
-  // In a real app, average would be recalculated properly
-  // For now, let's just do a simple approximation
-  agent.ratings.average =
-    (agent.ratings.average * (agent.ratings.count - 1) + newReview.rating) / agent.ratings.count
-
-  return newReview
-}
-
-// --- Database Accessor Functions ---
+// --- Database Access Object ---
 export const db = {
   users: {
-    find: (predicate: (user: User) => boolean) => users.find(predicate),
-    create: (data: Omit<User, "id">) => {
-      const { credits, ...restData } = data
-      const newUser: User = { id: `${users.length + 1}`, credits: credits || 0, ...restData }
-      users.push(newUser)
+    find: (predicate: (user: User) => boolean) => global.mock_users.find(predicate),
+    getAll: () => global.mock_users,
+    create: (data: Omit<User, "id" | "createdAt" | "updatedAt">) => {
+      const newUser: User = {
+        id: `user_${Date.now()}`,
+        ...data,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      global.mock_users.push(newUser)
       return newUser
     },
     update: (id: string, data: Partial<Omit<User, "id">>) => {
-      const index = users.findIndex((u) => u.id === id)
-      if (index !== -1) {
-        users[index] = { ...users[index], ...data, updatedAt: new Date() }
-        return users[index]
+      const userIndex = global.mock_users.findIndex((u) => u.id === id)
+      if (userIndex > -1) {
+        global.mock_users[userIndex] = {
+          ...global.mock_users[userIndex],
+          ...data,
+          updatedAt: new Date().toISOString(),
+        }
+        return global.mock_users[userIndex]
       }
       return null
     },
   },
   agents: {
-    find: (predicate: (agent: Agent) => boolean) => MOCK_AGENTS.find(predicate),
-    getAll: () => MOCK_AGENTS,
-    create: (data: Omit<Agent, "id" | "createdAt" | "updatedAt" | "status" | "ratings" | "reviews"> & Partial<Agent>) => {
+    find: (predicate: (agent: Agent) => boolean) => global.mock_agents.find(predicate),
+    getAll: () => global.mock_agents,
+    create: (data: Omit<Agent, "id" | "createdAt" | "status" | "updatedAt">) => {
       const newAgent: Agent = {
-        id: `agent-${Math.random().toString(36).substr(2, 9)}`,
-        status: "pending",
-        ratings: { average: 0, count: 0 },
-        reviews: [],
+        id: `agent_${Date.now()}`,
         ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        status: "pending",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }
-      MOCK_AGENTS.push(newAgent)
+      global.mock_agents.push(newAgent)
       return newAgent
     },
+    update: (id: string, data: Partial<Omit<Agent, "id">>) => {
+      const agentIndex = global.mock_agents.findIndex((a) => a.id === id)
+      if (agentIndex > -1) {
+        global.mock_agents[agentIndex] = { ...global.mock_agents[agentIndex], ...data }
+        return global.mock_agents[agentIndex]
+      }
+      return null
+    },
   },
-  purchases: {
-    findForUser: (userId: string) => purchases.filter((p) => p.userId === userId),
+  reviews: {
+    findByAgentId: (agentId: string) => global.mock_reviews.filter((r) => r.agentId === agentId),
+    create: (data: Omit<Review, "id" | "createdAt">) => {
+      const newReview: Review = {
+        id: `review_${Date.now()}`,
+        ...data,
+        createdAt: new Date().toISOString(),
+      }
+      global.mock_reviews.push(newReview)
+      return newReview
+    },
   },
   transactions: {
-    findForUser: (userId: string) => transactions.filter((t) => t.userId === userId),
+    findByUserId: (userId: string) => global.mock_transactions.filter((t) => t.userId === userId),
+    getAll: () => global.mock_transactions,
     create: (data: Omit<Transaction, "id">) => {
-      const newTransaction: Transaction = { id: `txn_${Date.now()}`, ...data }
-      transactions.push(newTransaction)
+      const newTransaction: Transaction = {
+        id: `txn_${Date.now()}`,
+        ...data,
+      }
+      global.mock_transactions.push(newTransaction)
       return newTransaction
     },
   },
-  workflows: {
-    find: (predicate: (workflow: Workflow) => boolean) => workflows.find(predicate),
-    findForUser: (userId: string) => workflows.filter((w) => w.userId === userId),
-    create: (data: Omit<Workflow, "id" | "createdAt" | "updatedAt" | "status" | "executionHistory">) => {
-      const newWorkflow: Workflow = {
-        id: `wf_${Date.now()}`,
-        ...data,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        status: "draft",
-        executionHistory: [],
-      }
-      workflows.push(newWorkflow)
-      return newWorkflow
+  apiUsage: {
+    get: (userId: string, endpoint: string): ApiUsage | undefined => {
+      return global.mock_api_usage.find((u) => u.userId === userId && u.endpoint === endpoint)
     },
-    update: (id: string, data: Partial<Workflow>) => {
-        const index = workflows.findIndex(w => w.id === id);
-        if (index !== -1) {
-            workflows[index] = { ...workflows[index], ...data, updatedAt: new Date() };
-            return workflows[index];
+    record: (userId: string, endpoint: string): ApiUsage => {
+      let usage = global.mock_api_usage.find((u) => u.userId === userId && u.endpoint === endpoint)
+      if (usage) {
+        usage.timestamps.push(Date.now())
+      } else {
+        usage = {
+          userId,
+          endpoint,
+          timestamps: [Date.now()],
         }
-        return null;
-    }
+        global.mock_api_usage.push(usage)
+      }
+      const oneHourAgo = Date.now() - 60 * 60 * 1000
+      usage.timestamps = usage.timestamps.filter((ts) => ts > oneHourAgo)
+      return usage
+    },
+  },
+  purchases: {
+    find: (predicate: (purchase: Purchase) => boolean) => global.mock_purchases.find(predicate),
+    findByUserId: (userId: string) => global.mock_purchases.filter((p) => p.userId === userId),
+    create: (data: Omit<Purchase, "id" | "createdAt">) => {
+      const newPurchase: Purchase = {
+        id: `purchase_${Date.now()}`,
+        ...data,
+        createdAt: new Date().toISOString(),
+      }
+      global.mock_purchases.push(newPurchase)
+      return newPurchase
+    },
   },
 } 

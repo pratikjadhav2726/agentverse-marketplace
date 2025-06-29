@@ -40,17 +40,23 @@ export default function SignInPage() {
 
   const quickLogin = async (userType: string) => {
     const emails = {
-      admin: "admin@agentverse.com",
-      seller: "seller@agentverse.com",
-      buyer: "buyer@agentverse.com",
+      admin: "admin@example.com",
+      seller: "bob@example.com",
+      buyer: "alice@example.com",
     }
 
     setLoading(true)
-    const success = await login(emails[userType as keyof typeof emails], "password")
-    if (success) {
-      router.push("/dashboard")
+    setError("")
+    try {
+      const user = await login(emails[userType as keyof typeof emails], "password")
+      if (user) {
+        router.push("/dashboard")
+      }
+    } catch (err) {
+      setError((err as Error).message || "Login failed")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

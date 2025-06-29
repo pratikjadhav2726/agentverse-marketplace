@@ -4,8 +4,8 @@ export interface User {
   name: string
   role: "admin" | "seller" | "buyer"
   credits: number
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string
+  updatedAt: string
   stripeCustomerId?: string
 }
 
@@ -13,34 +13,32 @@ export interface Agent {
   id: string
   name: string
   description: string
+  readme: string
+  documentation: string
+  avatar: string
   creator: string
-  capabilities: string[]
-  pricing: Pricing
   sellerId: string
-  status: "pending" | "approved" | "active" | "suspended" | "rejected" | "draft"
+  capabilities: string[]
+  status: "pending" | "active" | "rejected"
   a2aEndpoint: string
   dockerImage?: string
   metadata: Record<string, any>
+  pricing: Pricing
   ratings: {
     average: number
     count: number
   }
   reviews: Review[]
-  documentation: string
-  examples: Array<{ input: any; output: any; description: string }>
-  createdAt: Date
-  updatedAt: Date
+  examples: Example[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Purchase {
   id: string
-  buyerId: string
+  userId: string
   agentId: string
-  amount: number
-  currency: string
-  status: "pending" | "completed" | "failed" | "refunded"
-  stripePaymentIntentId: string
-  createdAt: Date
+  createdAt: string
 }
 
 export interface A2ASession {
@@ -65,28 +63,40 @@ export interface A2AMessage {
 }
 
 export interface Review {
-  id: string;
-  user: string;
-  rating: number;
-  comment: string;
-  date: string;
+  id: string
+  agentId: string
+  userId: string
+  userName: string
+  rating: number
+  comment: string
+  createdAt: string
 }
 
 export interface Transaction {
   id: string
   userId: string
-  type: "purchase" | "usage" | "payout" | "earning"
-  amount: number // credits or currency amount in cents
-  currency: string // 'credits' or 'usd'
+  type: "purchase" | "usage"
+  agentId?: string // only for usage
+  amount: number // in credits
   description: string
-  createdAt: Date
-  relatedId?: string // e.g., agentId for usage, purchaseId for purchase
+  createdAt: string
+}
+
+export interface ApiUsage {
+  userId: string
+  endpoint: string
+  timestamps: number[]
 }
 
 export interface Pricing {
   amount: number
   currency: "credits"
-  type: "one-time"
+}
+
+export interface Example {
+  input: Record<string, any>
+  output: Record<string, any>
+  description?: string
 }
 
 export interface Rating {

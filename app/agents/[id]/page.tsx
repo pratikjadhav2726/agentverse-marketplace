@@ -252,20 +252,29 @@ export default function AgentPage({ params }: { params: { id: string } }) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Capabilities</CardTitle>
+              <CardTitle>Rating</CardTitle>
+              <CardDescription>Based on {agent.ratings.count} reviews</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                {agent.capabilities.map((capability, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>{capability}</span>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2">
+                <span className="text-4xl font-bold">{agent.ratings.average.toFixed(1)}</span>
+                <div className="flex">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className={`h-6 w-6 ${
+                        i < Math.round(agent.ratings.average)
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "text-muted-foreground"
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* Reviews Section */}
           <Card>
             <CardHeader>
               <CardTitle>Reviews</CardTitle>

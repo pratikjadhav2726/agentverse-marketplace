@@ -27,37 +27,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setUser(JSON.parse(savedUser))
       } catch (error) {
+        console.error("Failed to parse user from localStorage", error)
         localStorage.removeItem("agentverse-user")
+        setUser(null)
       }
     }
+    setLoading(false)
   }
 
   // Check for existing session on mount
   useEffect(() => {
     fetchUser()
-    setLoading(false)
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password?: string) => {
+    setLoading(true)
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password: password || "password" }), // Password is not used in mock
       })
-
-      if (!response.ok) return false
-
-      const { user } = await response.json()
-      setUser(user)
-      localStorage.setItem("agentverse-user", JSON.stringify(user))
-      return true
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed")
+      }
+      setUser(data.user)
+      localStorage.setItem("agentverse-user", JSON.stringify(data.user))
+      return data.user
     } catch (error) {
-      return false
+      console.error("Login error:", error)
+      logout() // Clear user state on error
+      throw error
+    } finally {
+      setLoading(false)
     }
   }
 
   const signup = async (userData: { name: string; email: string; role: "buyer" | "seller" }): Promise<boolean> => {
+    setLoading(true)
     try {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
@@ -73,6 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return true
     } catch (error) {
       return false
+    } finally {
+      setLoading(false)
     }
   }
 

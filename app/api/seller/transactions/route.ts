@@ -4,19 +4,20 @@ import { db } from "@/lib/mock-db"
 
 export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
+
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  try {
-    const purchases = db.purchases.findByUserId(user.id)
-    const agentIds = purchases.map((p) => p.agentId)
-    const allAgents = db.agents.getAll()
-    const purchasedAgents = allAgents.filter((agent) => agentIds.includes(agent.id))
+  if (user.role !== "seller") {
+    return NextResponse.json({ error: "Forbidden: User is not a seller" }, { status: 403 })
+  }
 
-    return NextResponse.json(purchasedAgents)
+  try {
+    const sellerTransactions = db.transactions.findForUser(user.id)
+    return NextResponse.json(sellerTransactions)
   } catch (error) {
-    console.error("Failed to fetch purchased agents:", error)
+    console.error("Failed to fetch seller transactions:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 } 

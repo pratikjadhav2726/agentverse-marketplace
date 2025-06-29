@@ -83,26 +83,6 @@ export function AgentCard({ agent }: AgentCardProps) {
 
       <CardContent className="flex-1">
         <div className="space-y-4">
-          {/* Capabilities */}
-          <div>
-            <h4 className="text-sm font-medium mb-2 flex items-center">
-              <Zap className="h-4 w-4 mr-1" />
-              Capabilities
-            </h4>
-            <div className="flex flex-wrap gap-1">
-              {agent.capabilities.slice(0, 3).map((capability, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
-                  {capability}
-                </Badge>
-              ))}
-              {agent.capabilities.length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{agent.capabilities.length - 3} more
-                </Badge>
-              )}
-            </div>
-          </div>
-
           {/* Rating */}
           <div className="flex items-center space-x-2">
             <div className="flex items-center">
@@ -119,11 +99,10 @@ export function AgentCard({ agent }: AgentCardProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <DollarSign className="h-4 w-4 text-green-600" />
-              <span className="font-semibold text-lg">
+              <span className="font-semibold text-lg ml-1">
                 {agent.pricing.amount} Credits
               </span>
             </div>
-            <Badge variant="outline">{agent.pricing.type}</Badge>
           </div>
         </div>
       </CardContent>

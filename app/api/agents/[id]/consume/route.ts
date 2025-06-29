@@ -1,62 +1,95 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { getUserFromRequest } from "@/lib/auth"
 import { db } from "@/lib/mock-db"
-import type { Agent, User } from "@/lib/types"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+const RATE_LIMIT_COUNT = 5
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000 // 1 hour in milliseconds
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUserFromRequest(req)
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // --- Rate Limiter ---
+  const agentId = params.id
+  const endpoint = `/api/agents/${agentId}/consume`
+  const usage = db.apiUsage.get(user.id, endpoint)
+
+  const requestsInWindow =
+    usage?.timestamps.filter((ts) => ts > Date.now() - RATE_LIMIT_WINDOW).length ?? 0
+
+  if (requestsInWindow >= RATE_LIMIT_COUNT) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again in an hour." },
+      { status: 429 }
+    )
+  }
+  // --- End Rate Limiter ---
+
   try {
-    const agentId = params.id
-    const { userId } = await request.json()
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
-    }
+    // If not rate-limited, record the request and proceed to charge the user
+    db.apiUsage.record(user.id, endpoint)
 
     const agent = db.agents.find((a) => a.id === agentId)
-    const user = db.users.find((u) => u.id === userId)
-    const seller = db.users.find((u) => u.id === agent?.sellerId)
-
-    if (!agent || !user || !seller) {
-      return NextResponse.json({ error: "Invalid agent, user, or seller" }, { status: 404 })
+    if (!agent) {
+      return NextResponse.json({ error: "Agent not found" }, { status: 404 })
     }
 
-    if (agent.pricing.currency !== "credits") {
-      return NextResponse.json({ error: "This agent cannot be consumed with credits" }, { status: 400 })
+    if (user.credits < agent.pricing.amount) {
+      return NextResponse.json({ error: "Insufficient credits" }, { status: 400 })
     }
 
-    const cost = agent.pricing.amount
+    // Deduct credits from user
+    const updatedUser = db.users.update(user.id, {
+      credits: user.credits - agent.pricing.amount,
+    })
 
-    if (user.credits < cost) {
-      return NextResponse.json({ error: "Insufficient credits" }, { status: 402 })
+    if (!updatedUser) {
+      // Should not happen if user was found before
+      throw new Error("Failed to update user credits.")
     }
 
-    // Perform the transaction
-    db.users.update(userId, { credits: user.credits - cost })
-    db.users.update(seller.id, { credits: seller.credits + cost })
+    // Check if user has already purchased this agent, if not, create a record
+    const existingPurchase = db.purchases.find(
+      (p) => p.userId === user.id && p.agentId === agentId
+    )
+    if (!existingPurchase) {
+      db.purchases.create({ userId: user.id, agentId: agentId })
+    }
 
-    // Log transactions
+    // Give credits to the seller
+    const seller = db.users.find((u) => u.id === agent.sellerId)
+    if (!seller) {
+      console.error("Seller not found for agent:", agent.id)
+    } else {
+      db.users.update(agent.sellerId, { credits: seller.credits + agent.pricing.amount })
+      db.transactions.create({
+        userId: agent.sellerId,
+        type: "usage",
+        agentId: agent.id,
+        amount: agent.pricing.amount,
+        description: `Earning from agent usage: ${agent.name}`,
+        createdAt: new Date().toISOString(),
+      })
+    }
+
+    // Create a transaction record for the user
     db.transactions.create({
-      userId,
+      userId: user.id,
       type: "usage",
-      amount: -cost,
-      currency: "credits",
+      agentId: agent.id,
+      amount: -agent.pricing.amount,
       description: `Used agent: ${agent.name}`,
-      relatedId: agentId,
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     })
 
-    db.transactions.create({
-      userId: seller.id,
-      type: "earning",
-      amount: cost,
-      currency: "credits",
-      description: `Sale of agent: ${agent.name} to user: ${user.name}`,
-      relatedId: agentId,
-      createdAt: new Date(),
+    return NextResponse.json({
+      message: "Agent used successfully",
+      credits: updatedUser.credits,
     })
-
-    return NextResponse.json({ success: true, message: `Successfully consumed agent ${agent.name}` })
   } catch (error) {
     console.error("Agent consumption failed:", error)
-    return NextResponse.json({ error: "Failed to consume agent" }, { status: 500 })
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }
 } 

@@ -11,10 +11,7 @@ export async function getUserFromRequest(req: NextRequest): Promise<User | null>
   const userId = req.headers.get("user-id")
 
   if (!userId) {
-    // For demonstration purposes, let's fall back to a default user if no header is present
-    // In a real app, you'd likely return null or throw an error.
-    const defaultUser = db.users.find((user) => user.role === "buyer")
-    return defaultUser || null
+    return null
   }
 
   const user = db.users.find((user) => user.id === userId)
