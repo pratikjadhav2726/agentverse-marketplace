@@ -39,6 +39,7 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@stripe/react-stripe-js": "latest",
     "@stripe/stripe-js": "latest",
+    "@supabase/supabase-js": "^2.50.3",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -53,7 +54,9 @@
     "react-day-picker": "8.10.1",
     "react-dom": "^18",
     "react-hook-form": "^7.54.1",
+    "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.1.7",
+    "react-syntax-highlighter": "^15.6.1",
     "reactflow": "^11.11.4",
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
@@ -64,11 +67,18 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/supertest": "^6.0.3",
+    "@types/uuid": "^10.0.0",
+    "jest": "^30.0.4",
     "postcss": "^8.5",
+    "supertest": "^7.1.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5"
+    "ts-jest": "^29.4.0",
+    "typescript": "^5",
+    "uuid": "^11.1.0"
   }
 }

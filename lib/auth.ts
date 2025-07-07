@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { db } from "./mock-db"
+import { supabase } from "@/lib/supabase"
 import type { User } from "./types"
 
 /**
@@ -14,6 +14,6 @@ export async function getUserFromRequest(req: NextRequest): Promise<User | null>
     return null
   }
 
-  const user = db.users.find((user) => user.id === userId)
+  const { data: user, error } = await supabase.from('users').select('*').eq('id', userId).single();
   return user || null
 } 

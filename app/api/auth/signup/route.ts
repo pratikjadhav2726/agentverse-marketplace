@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { db } from "@/lib/mock-db"
+import { supabase } from "@/lib/supabase"
 
 export async function POST(request: Request) {
   try {
@@ -9,24 +9,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    const existingUser = db.users.find((u) => u.email === email)
+    // Check for existing user
+    const { data: existingUser, error: findError } = await supabase.from('users').select('*').eq('email', email).single();
     if (existingUser) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 409 })
     }
 
-    const newUser = db.users.create({
-      email,
-      name,
-      role,
-      credits: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
+    // Insert new user
+    const { data: newUser, error: insertError } = await supabase.from('users').insert([
+      { email, name, role }
+    ]).select().single();
+    if (insertError || !newUser) {
+      return NextResponse.json({ error: insertError?.message || "Failed to create user" }, { status: 500 })
+    }
 
-    // Don't send the password back to the client
-    const { ...userWithoutPassword } = newUser
-
-    return NextResponse.json({ user: userWithoutPassword }, { status: 201 })
+    return NextResponse.json({ user: newUser }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
   }

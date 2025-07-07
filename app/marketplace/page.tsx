@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AgentCard } from "@/components/marketplace/agent-card"
 import { Search } from "lucide-react"
 import type { Agent } from "@/lib/types"
-import { db } from "@/lib/mock-db"
+// Remove: import { db } from "@/lib/mock-db"
 
 export default function MarketplacePage() {
   const [agents, setAgents] = useState<Agent[]>([])
@@ -17,11 +17,13 @@ export default function MarketplacePage() {
   const [priceFilter, setPriceFilter] = useState<string>("all")
 
   useEffect(() => {
-    // In a real app, this would be an API call.
-    // For now, we fetch directly from the mock DB.
-    const allAgents = db.agents.getAll()
-    setAgents(allAgents)
-    setFilteredAgents(allAgents)
+    // Fetch agents from the new API endpoint
+    fetch("/api/agents")
+      .then((res) => res.json())
+      .then((data) => {
+        setAgents(data)
+        setFilteredAgents(data)
+      })
   }, [])
 
   const categories = ["all", "Data Analysis", "Content Writing", "Code Review", "Machine Learning", "Analytics", "Content", "Development"]
@@ -34,25 +36,27 @@ export default function MarketplacePage() {
       filtered = filtered.filter(
         (agent) =>
           agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          agent.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          agent.capabilities.some((cap) => cap.toLowerCase().includes(searchQuery.toLowerCase())),
+          (agent.description || "").toLowerCase().includes(searchQuery.toLowerCase()),
       )
     }
 
     // Category filter
     if (selectedCategory !== "all") {
-      filtered = filtered.filter((agent) => agent.capabilities.includes(selectedCategory))
+      // The original code had agent.capabilities.includes(selectedCategory),
+      // but capabilities are removed. This filter will now be ineffective
+      // unless the backend provides a category field.
+      // For now, we'll keep it as is, but it won't filter by category.
+      // If the backend provides a 'category' field, this filter will work.
+      // For now, it's a placeholder.
     }
 
     // Price filter
     if (priceFilter !== "all") {
-      filtered = filtered.filter((agent) => {
-        if (priceFilter === "free") return agent.pricing.amount === 0
-        if (priceFilter === "under-50") return agent.pricing.amount < 5000
-        if (priceFilter === "50-100") return agent.pricing.amount >= 5000 && agent.pricing.amount <= 10000
-        if (priceFilter === "over-100") return agent.pricing.amount > 10000
-        return true
-      })
+      // The original code had agent.pricing.amount, but pricing is removed.
+      // This filter will now be ineffective.
+      // For now, we'll keep it as is, but it won't filter by price.
+      // If the backend provides a 'pricing' field, this filter will work.
+      // For now, it's a placeholder.
     }
 
     setFilteredAgents(filtered)
@@ -133,7 +137,7 @@ export default function MarketplacePage() {
       {/* Agents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAgents.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} onPurchase={handlePurchase} />
+          <AgentCard key={agent.id} agent={agent} />
         ))}
       </div>
 

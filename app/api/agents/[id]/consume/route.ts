@@ -1,95 +1,83 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getUserFromRequest } from "@/lib/auth"
-import { db } from "@/lib/mock-db"
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
-const RATE_LIMIT_COUNT = 5
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000 // 1 hour in milliseconds
+const COMMISSION_RATE = 0.2; // 20%
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const user = await getUserFromRequest(req)
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+  const { userId } = await request.json();
+  const agentId = params.id;
 
-  // --- Rate Limiter ---
-  const agentId = params.id
-  const endpoint = `/api/agents/${agentId}/consume`
-  const usage = db.apiUsage.get(user.id, endpoint)
+  // 1. Fetch agent and seller
+  const { data: agent, error: agentError } = await supabase
+    .from('agents')
+    .select('*')
+    .eq('id', agentId)
+    .single();
+  if (agentError || !agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
-  const requestsInWindow =
-    usage?.timestamps.filter((ts) => ts > Date.now() - RATE_LIMIT_WINDOW).length ?? 0
+  const price = agent.price_per_use_credits;
+  const sellerId = agent.owner_id;
+  const commission = Math.floor(price * COMMISSION_RATE);
+  const sellerAmount = price - commission;
 
-  if (requestsInWindow >= RATE_LIMIT_COUNT) {
-    return NextResponse.json(
-      { error: "Too many requests. Please try again in an hour." },
-      { status: 429 }
-    )
-  }
-  // --- End Rate Limiter ---
+  // 2. Fetch user wallet
+  const { data: userWallet, error: userWalletError } = await supabase
+    .from('wallets')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+  if (userWalletError || !userWallet || userWallet.balance < price)
+    return NextResponse.json({ error: "Insufficient credits" }, { status: 400 });
 
-  try {
-    // If not rate-limited, record the request and proceed to charge the user
-    db.apiUsage.record(user.id, endpoint)
+  // 3. Debit user, credit seller, log commission
+  const { error: debitError } = await supabase
+    .from('wallets')
+    .update({ balance: userWallet.balance - price })
+    .eq('user_id', userId);
+  if (debitError) return NextResponse.json({ error: debitError.message }, { status: 500 });
 
-    const agent = db.agents.find((a) => a.id === agentId)
-    if (!agent) {
-      return NextResponse.json({ error: "Agent not found" }, { status: 404 })
+  // Credit seller
+  const { data: sellerWallet, error: sellerWalletError } = await supabase
+    .from('wallets')
+    .select('*')
+    .eq('user_id', sellerId)
+    .single();
+  if (sellerWalletError || !sellerWallet)
+    return NextResponse.json({ error: "Seller wallet not found" }, { status: 500 });
+
+  const { error: creditError } = await supabase
+    .from('wallets')
+    .update({ balance: sellerWallet.balance + sellerAmount })
+    .eq('user_id', sellerId);
+  if (creditError) return NextResponse.json({ error: creditError.message }, { status: 500 });
+
+  // Log transactions
+  await supabase.from('credit_transactions').insert([
+    {
+      from_user_id: userId,
+      to_user_id: sellerId,
+      agent_id: agentId,
+      amount: -price,
+      type: 'use',
+      metadata: {},
+    },
+    {
+      from_user_id: userId,
+      to_user_id: null,
+      agent_id: agentId,
+      amount: commission,
+      type: 'commission',
+      metadata: {},
+    },
+    {
+      from_user_id: userId,
+      to_user_id: sellerId,
+      agent_id: agentId,
+      amount: sellerAmount,
+      type: 'use',
+      metadata: {},
     }
+  ]);
 
-    if (user.credits < agent.pricing.amount) {
-      return NextResponse.json({ error: "Insufficient credits" }, { status: 400 })
-    }
-
-    // Deduct credits from user
-    const updatedUser = db.users.update(user.id, {
-      credits: user.credits - agent.pricing.amount,
-    })
-
-    if (!updatedUser) {
-      // Should not happen if user was found before
-      throw new Error("Failed to update user credits.")
-    }
-
-    // Check if user has already purchased this agent, if not, create a record
-    const existingPurchase = db.purchases.find(
-      (p) => p.userId === user.id && p.agentId === agentId
-    )
-    if (!existingPurchase) {
-      db.purchases.create({ userId: user.id, agentId: agentId })
-    }
-
-    // Give credits to the seller
-    const seller = db.users.find((u) => u.id === agent.sellerId)
-    if (!seller) {
-      console.error("Seller not found for agent:", agent.id)
-    } else {
-      db.users.update(agent.sellerId, { credits: seller.credits + agent.pricing.amount })
-      db.transactions.create({
-        userId: agent.sellerId,
-        type: "usage",
-        agentId: agent.id,
-        amount: agent.pricing.amount,
-        description: `Earning from agent usage: ${agent.name}`,
-        createdAt: new Date().toISOString(),
-      })
-    }
-
-    // Create a transaction record for the user
-    db.transactions.create({
-      userId: user.id,
-      type: "usage",
-      agentId: agent.id,
-      amount: -agent.pricing.amount,
-      description: `Used agent: ${agent.name}`,
-      createdAt: new Date().toISOString(),
-    })
-
-    return NextResponse.json({
-      message: "Agent used successfully",
-      credits: updatedUser.credits,
-    })
-  } catch (error) {
-    console.error("Agent consumption failed:", error)
-    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
-  }
+  return NextResponse.json({ success: true });
 } 

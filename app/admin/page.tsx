@@ -139,7 +139,7 @@ export default function AdminPage() {
                   <TableRow key={agent.id}>
                     <TableCell className="font-medium">{agent.name}</TableCell>
                     <TableCell>{agent.creator}</TableCell>
-                    <TableCell>{agent.pricing.amount} Credits</TableCell>
+                    <TableCell>{agent.price_per_use_credits || "N/A"} Credits</TableCell>
                     <TableCell>
                       <Badge className={`${agent.status === "active" ? "bg-green-100 text-green-800" : agent.status === "rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
                         {agent.status === "active" ? "Active" : agent.status === "rejected" ? "Rejected" : "Pending"}

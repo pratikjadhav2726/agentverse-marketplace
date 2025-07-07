@@ -1,16 +1,18 @@
 import type { Workflow, WorkflowExecution, ExecutionLog, WorkflowNode } from "./workflow-types"
-import { db } from "./mock-db"
+// import { db } from "./mock-db"
 
 // In-memory store for active executions. In production, this would be a distributed cache like Redis.
 const activeExecutions = new Map<string, WorkflowExecution>()
 
 class WorkflowEngine {
   async executeWorkflow(workflowId: string, inputs: Record<string, any>): Promise<string> {
-    const workflow = db.workflows.find((w) => w.id === workflowId)
-    if (!workflow) {
-      throw new Error("Workflow not found")
-    }
-
+    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // const workflow = db.workflows.find((w) => w.id === workflowId)
+    // if (!workflow) {
+    //   throw new Error("Workflow not found")
+    // }
+    // ...
+    // For now, just simulate
     const executionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const execution: WorkflowExecution = {
       id: executionId,
@@ -20,16 +22,12 @@ class WorkflowEngine {
       results: inputs,
       logs: [],
     }
-
     activeExecutions.set(executionId, execution)
-
-    // Start execution in background
-    this.runWorkflowExecution(execution, workflow).catch((error) => {
+    this.runWorkflowExecution(execution, { id: workflowId } as any).catch((error) => {
       execution.status = "failed"
       execution.endTime = new Date()
       this.addLog(execution, "error", "root", `Workflow execution failed: ${error.message}`)
     })
-
     return executionId
   }
 
@@ -187,21 +185,26 @@ class WorkflowEngine {
   }
 
   saveWorkflow(workflow: Workflow) {
-    if (db.workflows.find((w) => w.id === workflow.id)) {
-      db.workflows.update(workflow.id, workflow)
-    } else {
-      // This is a simplified create. The db create function has a different signature.
-      // In a real app, you'd have a proper "create" or "upsert" method.
-      db.workflows.update(workflow.id, workflow) // Mocking upsert
-    }
+    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // if (db.workflows.find((w) => w.id === workflow.id)) {
+    //   db.workflows.update(workflow.id, workflow)
+    // } else {
+    //   // This is a simplified create. The db create function has a different signature.
+    //   // In a real app, you'd have a proper "create" or "upsert" method.
+    //   db.workflows.update(workflow.id, workflow) // Mocking upsert
+    // }
   }
 
   getWorkflow(workflowId: string): Workflow | undefined {
-    return db.workflows.find((w) => w.id === workflowId)
+    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // return db.workflows.find((w) => w.id === workflowId)
+    return undefined // Mocking
   }
 
   getUserWorkflows(userId: string): Workflow[] {
-    return db.workflows.findForUser(userId)
+    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // return db.workflows.findForUser(userId)
+    return [] // Mocking
   }
 }
 

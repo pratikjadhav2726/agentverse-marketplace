@@ -63,22 +63,9 @@ export default function SellerAgentsPage() {
     }
   }
 
-  const getStatusVariant = (status: "pending" | "active" | "rejected") => {
-    switch (status) {
-      case "active":
-        return "default"
-      case "pending":
-        return "secondary"
-      case "rejected":
-        return "destructive"
-      default:
-        return "outline"
-    }
-  }
-
   const filteredAgents = agents.filter((agent) => {
     const matchesSearch = agent.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTab = activeTab === "all" || agent.status === activeTab
+    const matchesTab = activeTab === "all"
     return matchesSearch && matchesTab
   })
 
@@ -145,10 +132,6 @@ export default function SellerAgentsPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold">{agent.name}</h3>
-                          <Badge variant={getStatusVariant(agent.status)}>{agent.status}</Badge>
-                          {agent.metadata.version && (
-                            <Badge variant="outline">v{agent.metadata.version}</Badge>
-                          )}
                         </div>
                         <p className="mb-3 text-sm text-muted-foreground">{agent.description}</p>
 
@@ -156,7 +139,7 @@ export default function SellerAgentsPage() {
                           <div>
                             <p className="text-muted-foreground">Price</p>
                             <p className="font-medium">
-                              {agent.pricing.amount} {agent.pricing.currency}
+                              {agent.price_per_use_credits || "N/A"}
                             </p>
                           </div>
                           <div>
@@ -175,7 +158,7 @@ export default function SellerAgentsPage() {
                             <p className="flex items-center gap-1 text-muted-foreground">
                               <Star className="w-4 h-4" /> Rating
                             </p>
-                            <p className="font-medium">{agent.ratings.average.toFixed(1)}</p>
+                            <p className="font-medium">{agent.ratings?.average?.toFixed(1) ?? 'N/A'}</p>
                           </div>
                           <div>
                             <p className="flex items-center gap-1 text-muted-foreground">

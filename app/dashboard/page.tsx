@@ -11,9 +11,11 @@ import { CreditCard, Bot, DollarSign, Activity, TrendingUp, Users, ShoppingCart,
 import { Transaction } from "@/lib/types"
 import { useToast } from "@/components/ui/use-toast"
 import Link from "next/link"
+import { useWallet } from "@/hooks/use-wallet";
 
 export default function DashboardPage() {
   const { user, loading, refetchUser } = useAuth()
+  const { balance, loading: walletLoading, error: walletError, refetch: refetchWallet } = useWallet(user?.id)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -55,8 +57,9 @@ export default function DashboardPage() {
         description: "Your credits have been added to your account.",
       })
       if (refetchUser) refetchUser()
+      if (refetchWallet) refetchWallet()
     }
-  }, [searchParams, toast, refetchUser])
+  }, [searchParams, toast, refetchUser, refetchWallet])
 
   const handleBuyCredits = async () => {
     if (!user) return
@@ -93,7 +96,7 @@ export default function DashboardPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {user.name}!</p>
+        <p className="text-muted-foreground">Welcome back, {user.email}!</p>
       </div>
 
       {/* Main Content */}
@@ -106,7 +109,9 @@ export default function DashboardPage() {
                 <CardTitle className="text-sm font-medium">Your Credits</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{user.credits.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {walletLoading ? "..." : walletError ? "-" : (balance ?? 0).toLocaleString()}
+                </div>
                 <p className="text-xs text-muted-foreground">Available balance</p>
               </CardContent>
             </Card>
@@ -205,32 +210,29 @@ export default function DashboardPage() {
               </Button>
             </CardContent>
           </Card>
-          {user.role === "buyer" && (
-            <Card className="bg-secondary/50">
-              <CardHeader>
-                <CardTitle>Become a Seller</CardTitle>
-                <CardDescription>Start selling your own AI agents on the marketplace.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/seller">
-                  <Button className="w-full">Go to Seller Dashboard</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
-          {user.role === "seller" && (
-            <Card className="bg-secondary/50">
-              <CardHeader>
-                <CardTitle>Seller Dashboard</CardTitle>
-                <CardDescription>Manage your agents and track your earnings.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Link href="/seller">
-                  <Button className="w-full">Go to Seller Dashboard</Button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
+          {/* Always show dashboard cards for now, since user.role is not available */}
+          <Card className="bg-secondary/50">
+            <CardHeader>
+              <CardTitle>Become a Seller</CardTitle>
+              <CardDescription>Start selling your own AI agents on the marketplace.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/seller">
+                <Button className="w-full">Go to Seller Dashboard</Button>
+              </Link>
+            </CardContent>
+          </Card>
+          <Card className="bg-secondary/50">
+            <CardHeader>
+              <CardTitle>Seller Dashboard</CardTitle>
+              <CardDescription>Manage your agents and track your earnings.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/seller">
+                <Button className="w-full">Go to Seller Dashboard</Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
-import { db } from "@/lib/mock-db"
+// import { db } from "@/lib/mock-db"
 
 // 100 credits for $10
 const CENTS_PER_CREDIT = 10

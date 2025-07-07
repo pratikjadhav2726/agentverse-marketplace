@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth"
-import { db } from "@/lib/mock-db"
+import { supabase } from "@/lib/supabase"
 
 export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
@@ -10,8 +10,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const userTransactions = db.transactions.findForUser(user.id)
-    return NextResponse.json(userTransactions)
+    const { data: transactions, error } = await supabase
+      .from('credit_transactions')
+      .select('*')
+      .or(`from_user_id.eq.${user.id},to_user_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return NextResponse.json(transactions)
   } catch (error) {
     console.error("Failed to fetch user transactions:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })

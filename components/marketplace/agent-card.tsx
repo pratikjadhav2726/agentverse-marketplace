@@ -4,14 +4,20 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star, Zap, DollarSign, Users, ExternalLink } from "lucide-react"
+import { DollarSign, ExternalLink } from "lucide-react"
 import type { Agent } from "@/lib/types"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/components/ui/use-toast"
 
+// Extend Agent type for extra fields
+export type AgentWithExtras = Agent & {
+  avatar?: string;
+  creator?: string;
+};
+
 interface AgentCardProps {
-  agent: Agent
+  agent: AgentWithExtras
 }
 
 export function AgentCard({ agent }: AgentCardProps) {
@@ -24,33 +30,20 @@ export function AgentCard({ agent }: AgentCardProps) {
       router.push("/auth/signin")
       return
     }
-
-    if ((user.credits ?? 0) < agent.pricing.amount) {
-      toast({
-        title: "Insufficient Credits",
-        description: "You don't have enough credits to use this agent. Please purchase more.",
-        variant: "destructive",
-      })
-      router.push("/dashboard") // Redirect to buy credits
-      return
-    }
-
     try {
       const response = await fetch(`/api/agents/${agent.id}/consume`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
       })
-
       if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || "Failed to use agent")
       }
-
       toast({
         title: "Success!",
         description: `You have successfully used the agent: ${agent.name}.`,
       })
-
-      // Refetch user to update credit balance in the UI
       if (refetchUser) {
         await refetchUser()
       }
@@ -66,47 +59,31 @@ export function AgentCard({ agent }: AgentCardProps) {
   return (
     <Card className="h-full flex flex-col hover:shadow-lg transition-shadow group">
       <CardHeader>
-        <div className="flex items-start justify-between">
+        <div className="flex items-center gap-4">
+          {agent.avatar && (
+            <img src={agent.avatar} alt={agent.name} className="w-12 h-12 rounded" />
+          )}
           <div className="flex-1">
             <Link href={`/agents/${agent.id}`}>
               <CardTitle className="text-lg font-semibold line-clamp-1 hover:text-primary transition-colors cursor-pointer">
                 {agent.name}
               </CardTitle>
             </Link>
+            {agent.creator && (
+              <div className="text-xs text-muted-foreground mt-1">By {agent.creator}</div>
+            )}
             <CardDescription className="line-clamp-2 mt-1">{agent.description}</CardDescription>
           </div>
-          <Badge variant={agent.status === "active" ? "default" : "secondary"} className="ml-2">
-            {agent.status}
-          </Badge>
         </div>
       </CardHeader>
-
-      <CardContent className="flex-1">
-        <div className="space-y-4">
-          {/* Rating */}
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              <span className="text-sm font-medium ml-1">{agent.ratings.average.toFixed(1)}</span>
-            </div>
-            <span className="text-sm text-muted-foreground flex items-center">
-              <Users className="h-3 w-3 mr-1" />
-              {agent.ratings.count} reviews
-            </span>
-          </div>
-
-          {/* Pricing */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <DollarSign className="h-4 w-4 text-green-600" />
-              <span className="font-semibold text-lg ml-1">
-                {agent.pricing.amount} Credits
-              </span>
-            </div>
-          </div>
+      <CardContent className="flex-1 flex items-end">
+        <div className="flex items-center">
+          <DollarSign className="h-4 w-4 text-green-600" />
+          <span className="font-semibold text-lg ml-1">
+            {agent.price_per_use_credits ?? "N/A"} Credits
+          </span>
         </div>
       </CardContent>
-
       <CardFooter className="flex gap-2">
         <Link href={`/agents/${agent.id}`} className="flex-1">
           <Button variant="outline" className="w-full">
@@ -114,8 +91,8 @@ export function AgentCard({ agent }: AgentCardProps) {
             View Details
           </Button>
         </Link>
-        <Button className="flex-1" onClick={handleUseAgent} disabled={agent.status !== "active"}>
-          Hire for {agent.pricing.amount} Credits
+        <Button className="flex-1" onClick={handleUseAgent}>
+          Use for {agent.price_per_use_credits ?? "N/A"} Credits
         </Button>
       </CardFooter>
     </Card>

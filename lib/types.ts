@@ -1,38 +1,46 @@
-export interface User {
-  id: string
-  email: string
-  name: string
-  role: "admin" | "seller" | "buyer"
-  credits: number
-  createdAt: string
-  updatedAt: string
-  stripeCustomerId?: string
-}
+export type User = {
+  id: string;
+  email: string;
+  created_at: string;
+};
 
-export interface Agent {
-  id: string
-  name: string
-  description: string
-  readme: string
-  documentation: string
-  avatar: string
-  creator: string
-  sellerId: string
-  capabilities: string[]
-  status: "pending" | "active" | "rejected"
-  a2aEndpoint: string
-  dockerImage?: string
-  metadata: Record<string, any>
-  pricing: Pricing
-  ratings: {
-    average: number
-    count: number
-  }
-  reviews: Review[]
-  examples: Example[]
-  createdAt: string
-  updatedAt: string
-}
+export type Agent = {
+  id: string;
+  owner_id: string;
+  name: string;
+  description?: string;
+  price_per_use_credits: number;
+  price_subscription_credits?: number;
+  price_one_time_credits?: number;
+  created_at: string;
+};
+
+export type Wallet = {
+  id: string;
+  user_id: string;
+  balance: number;
+  updated_at: string;
+};
+
+export type CreditTransaction = {
+  id: string;
+  from_user_id?: string;
+  to_user_id?: string;
+  agent_id?: string;
+  amount: number;
+  type: 'purchase' | 'use' | 'commission' | 'payout' | 'promo';
+  metadata?: any;
+  created_at: string;
+};
+
+export type PayoutRequest = {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: 'pending' | 'approved' | 'rejected' | 'paid';
+  created_at: string;
+  processed_at?: string;
+};
 
 export interface Purchase {
   id: string

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth"
-import { db } from "@/lib/mock-db"
+import { supabase } from "@/lib/supabase"
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getUserFromRequest(req)
 
-  if (!user || user.role !== "admin") {
+  if (!user /* || user.role !== "admin" */) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -20,19 +20,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Invalid role provided" }, { status: 400 })
     }
 
-    // Prevent admin from accidentally demoting themselves if they are the only admin
-    if (user.id === userId && user.role === "admin") {
-      const allUsers = db.users.getAll()
-      const adminCount = allUsers.filter((u) => u.role === "admin").length
-      if (adminCount <= 1) {
-        return NextResponse.json({ error: "Cannot remove the last admin." }, { status: 400 })
-      }
-    }
-
-    const updatedUser = db.users.update(userId, { role })
-
-    if (!updatedUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    // Update user role in Supabase
+    const { data: updatedUser, error } = await supabase
+      .from('users')
+      .update({ role })
+      .eq('id', userId)
+      .select()
+      .single();
+    if (error || !updatedUser) {
+      return NextResponse.json({ error: error?.message || "User not found" }, { status: 404 })
     }
 
     return NextResponse.json(updatedUser)

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { db } from "@/lib/mock-db"
+import { supabase } from "@/lib/supabase"
 
 export async function POST(request: Request) {
   try {
@@ -11,9 +11,9 @@ export async function POST(request: Request) {
 
     // In a real app, you would hash the password and compare it.
     // Here we'll just find the user by email.
-    const user = db.users.find((u) => u.email === email)
+    const { data: user, error } = await supabase.from('users').select('*').eq('email', email).single();
 
-    if (!user) {
+    if (error || !user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
