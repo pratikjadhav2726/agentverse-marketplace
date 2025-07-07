@@ -6,27 +6,60 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AgentCard } from "@/components/marketplace/agent-card"
 import { Search } from "lucide-react"
-import type { Agent } from "@/lib/types"
-// Remove: import { db } from "@/lib/mock-db"
+
+// Updated interface to match our SQLite schema
+interface AgentWithOwner {
+  id: string;
+  owner_id: string;
+  name: string;
+  description?: string;
+  price_per_use_credits: number;
+  price_subscription_credits?: number;
+  price_one_time_credits?: number;
+  status: string;
+  created_at: string;
+  category?: string;
+  tags?: string;
+  demo_url?: string;
+  documentation?: string;
+  owner?: {
+    name: string;
+    email: string;
+  };
+}
 
 export default function MarketplacePage() {
-  const [agents, setAgents] = useState<Agent[]>([])
-  const [filteredAgents, setFilteredAgents] = useState<Agent[]>([])
+  const [agents, setAgents] = useState<AgentWithOwner[]>([])
+  const [filteredAgents, setFilteredAgents] = useState<AgentWithOwner[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [priceFilter, setPriceFilter] = useState<string>("all")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     // Fetch agents from the new API endpoint
-    fetch("/api/agents")
-      .then((res) => res.json())
-      .then((data) => {
-        setAgents(data)
-        setFilteredAgents(data)
-      })
+    fetchAgents()
   }, [])
 
-  const categories = ["all", "Data Analysis", "Content Writing", "Code Review", "Machine Learning", "Analytics", "Content", "Development"]
+  const fetchAgents = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/agents")
+      if (!response.ok) {
+        throw new Error('Failed to fetch agents')
+      }
+      const data = await response.json()
+      setAgents(data.agents || [])
+      setFilteredAgents(data.agents || [])
+    } catch (error) {
+      console.error('Error fetching agents:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Get unique categories from agents
+  const categories = ["all", ...Array.from(new Set(agents.map(agent => agent.category).filter(Boolean)))]
 
   useEffect(() => {
     let filtered = agents
@@ -36,35 +69,47 @@ export default function MarketplacePage() {
       filtered = filtered.filter(
         (agent) =>
           agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (agent.description || "").toLowerCase().includes(searchQuery.toLowerCase()),
+          (agent.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (agent.tags || "").toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
 
     // Category filter
     if (selectedCategory !== "all") {
-      // The original code had agent.capabilities.includes(selectedCategory),
-      // but capabilities are removed. This filter will now be ineffective
-      // unless the backend provides a category field.
-      // For now, we'll keep it as is, but it won't filter by category.
-      // If the backend provides a 'category' field, this filter will work.
-      // For now, it's a placeholder.
+      filtered = filtered.filter(agent => agent.category === selectedCategory)
     }
 
     // Price filter
     if (priceFilter !== "all") {
-      // The original code had agent.pricing.amount, but pricing is removed.
-      // This filter will now be ineffective.
-      // For now, we'll keep it as is, but it won't filter by price.
-      // If the backend provides a 'pricing' field, this filter will work.
-      // For now, it's a placeholder.
+      filtered = filtered.filter(agent => {
+        const price = agent.price_per_use_credits
+        switch (priceFilter) {
+          case "free":
+            return price === 0
+          case "under-50":
+            return price > 0 && price < 50
+          case "50-100":
+            return price >= 50 && price <= 100
+          case "over-100":
+            return price > 100
+          default:
+            return true
+        }
+      })
     }
 
     setFilteredAgents(filtered)
   }, [searchQuery, selectedCategory, priceFilter, agents])
 
-  const handlePurchase = (agentId: string) => {
-    // Implement purchase logic
-    console.log("Purchasing agent:", agentId)
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading agents...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -106,9 +151,9 @@ export default function MarketplacePage() {
               <SelectContent>
                 <SelectItem value="all">All Prices</SelectItem>
                 <SelectItem value="free">Free</SelectItem>
-                <SelectItem value="under-50">Under $50</SelectItem>
-                <SelectItem value="50-100">$50 - $100</SelectItem>
-                <SelectItem value="over-100">Over $100</SelectItem>
+                <SelectItem value="under-50">Under 50 Credits</SelectItem>
+                <SelectItem value="50-100">50 - 100 Credits</SelectItem>
+                <SelectItem value="over-100">Over 100 Credits</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -137,11 +182,18 @@ export default function MarketplacePage() {
       {/* Agents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAgents.map((agent) => (
-          <AgentCard key={agent.id} agent={agent} />
+          <AgentCard 
+            key={agent.id} 
+            agent={{
+              ...agent,
+              creator: agent.owner?.name || 'Unknown',
+              description: agent.description || ''
+            }} 
+          />
         ))}
       </div>
 
-      {filteredAgents.length === 0 && (
+      {filteredAgents.length === 0 && !loading && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No agents found matching your criteria.</p>
           <Button
