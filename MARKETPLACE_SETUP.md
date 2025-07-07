@@ -98,10 +98,10 @@ npm install
 ```
 
 ### 2. Initialize Database
-The database will be automatically initialized when you first run the API. You can also test it manually:
+The database will be automatically initialized when you first run the API. You can test it by visiting:
 
-```bash
-node test-db.js
+```
+http://localhost:3000/api/test-db
 ```
 
 ### 3. Start Development Server
