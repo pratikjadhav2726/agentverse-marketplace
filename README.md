@@ -1,5 +1,7 @@
 # AgentVerse Marketplace
 
+**[📚 Supabase Setup & DB Schema Tutorial →](./SUPABASE_TUTORIAL.md)**
+
 **AgentVerse Marketplace** is a next-generation platform designed to simplify the development, deployment, discovery, and collaboration of AI agents. It empowers sellers, buyers, and collaborative teams (“AI agent companies”) by providing robust abstractions and tools over complex infrastructure, making AI agent marketplaces accessible and powerful for all users.
 
 ## Key Features
