@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
+import * as crypto from 'crypto';
 
 // Create database instance
 const sqlite = new Database('agentverse.db');
@@ -10,6 +11,29 @@ sqlite.pragma('foreign_keys = ON');
 
 // Create drizzle instance
 export const db = drizzle(sqlite, { schema });
+
+// Encryption key for credentials (in production, this should be from environment)
+const ENCRYPTION_KEY = process.env.CREDENTIAL_ENCRYPTION_KEY || 'your-32-char-secret-key-here!!';
+
+// Simple encryption/decryption functions
+export function encryptCredential(text: string): string {
+  const iv = crypto.randomBytes(16);
+  const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
+export function decryptCredential(encryptedText: string): string {
+  const [ivHex, encrypted] = encryptedText.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const key = crypto.scryptSync(ENCRYPTION_KEY, 'salt', 32);
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
 
 // Initialize database with schema
 export function initializeDatabase() {
@@ -25,7 +49,68 @@ export function initializeDatabase() {
       )
     `);
 
-    // Create agents table
+    // Create MCP tools table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_tools (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        name TEXT NOT NULL,
+        description TEXT,
+        category TEXT,
+        api_endpoint TEXT,
+        auth_type TEXT CHECK (auth_type IN ('api_key', 'oauth', 'bearer', 'basic')) DEFAULT 'api_key',
+        required_scopes TEXT,
+        documentation_url TEXT,
+        is_public BOOLEAN DEFAULT true,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create agent_tools table (many-to-many relationship)
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS agent_tools (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
+        tool_id TEXT REFERENCES mcp_tools(id) ON DELETE CASCADE,
+        required_permissions TEXT,
+        usage_description TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(agent_id, tool_id)
+      )
+    `);
+
+    // Create user_credentials table (encrypted storage)
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS user_credentials (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        tool_id TEXT REFERENCES mcp_tools(id) ON DELETE CASCADE,
+        credential_name TEXT NOT NULL,
+        encrypted_value TEXT NOT NULL,
+        credential_type TEXT CHECK (credential_type IN ('api_key', 'oauth_token', 'oauth_refresh_token', 'username_password')) DEFAULT 'api_key',
+        expires_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, tool_id, credential_name)
+      )
+    `);
+
+    // Create tool_usage_logs table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS tool_usage_logs (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT REFERENCES users(id),
+        agent_id TEXT REFERENCES agents(id),
+        tool_id TEXT REFERENCES mcp_tools(id),
+        usage_type TEXT CHECK (usage_type IN ('api_call', 'authentication', 'error')) DEFAULT 'api_call',
+        request_data TEXT,
+        response_status INTEGER,
+        response_data TEXT,
+        credits_consumed INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create agents table (updated with tool capabilities)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS agents (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -40,7 +125,9 @@ export function initializeDatabase() {
         category TEXT,
         tags TEXT,
         demo_url TEXT,
-        documentation TEXT
+        documentation TEXT,
+        requires_tools BOOLEAN DEFAULT false,
+        tool_credits_per_use INTEGER DEFAULT 1
       )
     `);
 
@@ -61,8 +148,9 @@ export function initializeDatabase() {
         from_user_id TEXT REFERENCES users(id),
         to_user_id TEXT REFERENCES users(id),
         agent_id TEXT REFERENCES agents(id),
+        tool_id TEXT REFERENCES mcp_tools(id),
         amount INTEGER NOT NULL,
-        type TEXT CHECK (type IN ('purchase', 'use', 'commission', 'payout', 'promo')),
+        type TEXT CHECK (type IN ('purchase', 'use', 'commission', 'payout', 'promo', 'tool_usage')),
         metadata TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -106,7 +194,7 @@ export function initializeDatabase() {
     // Insert seed data
     seedDatabase();
     
-    console.log('Database initialized successfully');
+    console.log('Database initialized successfully with MCP tools support');
   } catch (error) {
     console.error('Error initializing database:', error);
   }
@@ -118,98 +206,121 @@ function seedDatabase() {
     const adminExists = sqlite.prepare('SELECT id FROM users WHERE email = ?').get('admin@agentverse.com');
     
     if (!adminExists) {
-      // Insert admin user
+      // Insert users
       const adminId = 'admin-id-12345678';
       sqlite.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(
-        adminId,
-        'admin@agentverse.com',
-        'Admin User',
-        'admin'
+        adminId, 'admin@agentverse.com', 'Admin User', 'admin'
       );
 
-      // Insert admin wallet
-      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(
-        adminId,
-        100000
-      );
-
-      // Insert sample seller
       const sellerId = 'seller-id-12345678';
       sqlite.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(
-        sellerId,
-        'seller@agentverse.com',
-        'Sample Seller',
-        'seller'
+        sellerId, 'seller@agentverse.com', 'Sample Seller', 'seller'
       );
 
-      // Insert seller wallet
-      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(
-        sellerId,
-        5000
-      );
-
-      // Insert sample buyer
       const buyerId = 'buyer-id-12345678';
       sqlite.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(
-        buyerId,
-        'buyer@agentverse.com',
-        'Sample Buyer',
-        'buyer'
+        buyerId, 'buyer@agentverse.com', 'Sample Buyer', 'buyer'
       );
 
-      // Insert buyer wallet
-      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(
-        buyerId,
-        1000
-      );
+      // Insert wallets
+      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(adminId, 100000);
+      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(sellerId, 5000);
+      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(buyerId, 1000);
 
-      // Insert sample agents
-      const agent1Id = 'agent-1-12345678';
+      // Insert sample MCP tools
+      const tool1Id = 'tool-google-sheets';
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags)
+        INSERT INTO mcp_tools (id, name, description, category, api_endpoint, auth_type, required_scopes, documentation_url)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        agent1Id,
-        sellerId,
-        'Text Summarizer AI',
-        'Advanced AI agent that can summarize long texts into concise, meaningful summaries.',
-        10,
-        100,
-        'Text Processing',
-        'summarization,nlp,text'
+        tool1Id,
+        'Google Sheets API',
+        'Read and write data to Google Sheets',
+        'Productivity',
+        'https://sheets.googleapis.com/v4',
+        'oauth',
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://developers.google.com/sheets/api'
+      );
+
+      const tool2Id = 'tool-slack-messaging';
+      sqlite.prepare(`
+        INSERT INTO mcp_tools (id, name, description, category, api_endpoint, auth_type, required_scopes, documentation_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        tool2Id,
+        'Slack Messaging API',
+        'Send messages and interact with Slack workspaces',
+        'Communication',
+        'https://slack.com/api',
+        'bearer',
+        'chat:write,channels:read',
+        'https://api.slack.com/'
+      );
+
+      const tool3Id = 'tool-email-sender';
+      sqlite.prepare(`
+        INSERT INTO mcp_tools (id, name, description, category, api_endpoint, auth_type, required_scopes, documentation_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        tool3Id,
+        'Email Sender API',
+        'Send emails through various providers',
+        'Communication',
+        'https://api.emailservice.com/v1',
+        'api_key',
+        'send:email',
+        'https://docs.emailservice.com'
+      );
+
+      // Insert sample agents with tool integration
+      const agent1Id = 'agent-1-12345678';
+      sqlite.prepare(`
+        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        agent1Id, sellerId,
+        'Smart Spreadsheet Assistant',
+        'AI agent that reads, analyzes, and updates Google Sheets automatically. Can generate reports, clean data, and perform calculations.',
+        15, 150, 'Productivity', 'spreadsheets,google-sheets,data-analysis', 1, 2
       );
 
       const agent2Id = 'agent-2-12345678';
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_subscription_credits, category, tags)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_subscription_credits, category, tags, requires_tools, tool_credits_per_use)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        agent2Id,
-        sellerId,
-        'Code Generator AI',
-        'AI agent that generates high-quality code based on natural language descriptions.',
-        25,
-        500,
-        'Development',
-        'code-generation,programming,ai'
+        agent2Id, sellerId,
+        'Team Communication Bot',
+        'AI agent that helps manage team communications across Slack and email. Can schedule messages, analyze sentiment, and generate summaries.',
+        30, 600, 'Communication', 'slack,email,team-management', 1, 3
       );
 
       const agent3Id = 'agent-3-12345678';
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        agent3Id,
-        sellerId,
+        agent3Id, sellerId,
         'Data Analyzer AI',
-        'Powerful AI agent for analyzing datasets and generating insights.',
-        50,
-        800,
-        'Data Science',
-        'data-analysis,insights,visualization'
+        'Powerful AI agent for analyzing datasets and generating insights. Works without external tools.',
+        50, 800, 'Data Science', 'data-analysis,insights,visualization', 0, 0
       );
 
-      console.log('Sample data seeded successfully');
+      // Link agents to tools they use
+      sqlite.prepare('INSERT INTO agent_tools (agent_id, tool_id, required_permissions, usage_description) VALUES (?, ?, ?, ?)').run(
+        agent1Id, tool1Id, 'read,write,create', 'Reads spreadsheet data, performs analysis, and writes results back to sheets'
+      );
+
+      sqlite.prepare('INSERT INTO agent_tools (agent_id, tool_id, required_permissions, usage_description) VALUES (?, ?, ?, ?)').run(
+        agent2Id, tool2Id, 'send_messages,read_channels', 'Sends automated messages and reads channel history for context'
+      );
+
+      sqlite.prepare('INSERT INTO agent_tools (agent_id, tool_id, required_permissions, usage_description) VALUES (?, ?, ?, ?)').run(
+        agent2Id, tool3Id, 'send_email', 'Sends follow-up emails and notifications to team members'
+      );
+
+      console.log('Sample data seeded successfully with MCP tools');
     }
   } catch (error) {
     console.error('Error seeding database:', error);

@@ -35,12 +35,23 @@ export async function GET(request: NextRequest) {
 
     const agents = sqlite.prepare(query).all(...params) as Agent[];
 
-    // Get owner information for each agent
+    // Get owner information and tools for each agent
     const agentsWithOwners = agents.map(agent => {
       const owner = sqlite.prepare('SELECT name, email FROM users WHERE id = ?').get(agent.owner_id) as { name: string; email: string };
+      
+      // Get tools used by this agent
+      const tools = sqlite.prepare(`
+        SELECT mt.*, at.required_permissions, at.usage_description
+        FROM mcp_tools mt
+        JOIN agent_tools at ON mt.id = at.tool_id
+        WHERE at.agent_id = ?
+      `).all(agent.id);
+
       return {
         ...agent,
-        owner: owner
+        owner: owner,
+        tools: tools,
+        tool_count: tools.length
       };
     });
 

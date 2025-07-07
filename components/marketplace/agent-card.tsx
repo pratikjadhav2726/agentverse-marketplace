@@ -4,12 +4,12 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { DollarSign, ExternalLink, Star } from "lucide-react"
+import { DollarSign, ExternalLink, Star, Wrench, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/components/ui/use-toast"
 
-// Updated interface to match our SQLite schema
+// Updated interface to match our SQLite schema with MCP tools
 interface AgentCardProps {
   agent: {
     id: string;
@@ -29,6 +29,17 @@ interface AgentCardProps {
     avatar?: string;
     averageRating?: number;
     reviewCount?: number;
+    requires_tools?: boolean;
+    tool_credits_per_use?: number;
+    tools?: Array<{
+      id: string;
+      name: string;
+      category?: string;
+      auth_type: string;
+      required_permissions?: string;
+      usage_description?: string;
+    }>;
+    tool_count?: number;
   }
 }
 
@@ -118,6 +129,28 @@ export function AgentCard({ agent }: AgentCardProps) {
           </div>
         )}
 
+        {/* Tools */}
+        {agent.requires_tools && agent.tools && agent.tools.length > 0 && (
+          <div className="mt-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground mb-1">
+              <Wrench className="h-3 w-3" />
+              <span>Requires {agent.tool_count} tool{agent.tool_count !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {agent.tools.slice(0, 2).map((tool) => (
+                <Badge key={tool.id} variant="outline" className="text-xs">
+                  {tool.name}
+                </Badge>
+              ))}
+              {agent.tools.length > 2 && (
+                <Badge variant="outline" className="text-xs">
+                  +{agent.tools.length - 2} more
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Rating */}
         {agent.averageRating && agent.reviewCount && (
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -137,6 +170,14 @@ export function AgentCard({ agent }: AgentCardProps) {
             </span>
             <span className="text-sm text-muted-foreground ml-1">per use</span>
           </div>
+          
+          {/* Tool usage cost */}
+          {agent.requires_tools && agent.tool_credits_per_use && agent.tool_credits_per_use > 0 && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Zap className="h-3 w-3 mr-1" />
+              <span>+{agent.tool_credits_per_use} credits for tool usage</span>
+            </div>
+          )}
           
           {/* Additional pricing options */}
           {agent.price_subscription_credits && (
