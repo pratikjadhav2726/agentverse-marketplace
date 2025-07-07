@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium">{user.name ?? '-'}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>
                       <Badge
@@ -118,7 +118,7 @@ export default function AdminUsersPage() {
                         {user.role}
                       </Badge>
                     </TableCell>
-                    <TableCell>{user.credits}</TableCell>
+                    <TableCell>{user.credits ?? '-'}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

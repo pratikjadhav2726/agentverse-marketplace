@@ -138,36 +138,15 @@ export default function AdminPage() {
                 {agents.map((agent) => (
                   <TableRow key={agent.id}>
                     <TableCell className="font-medium">{agent.name}</TableCell>
-                    <TableCell>{agent.creator}</TableCell>
-                    <TableCell>{agent.price_per_use_credits || "N/A"} Credits</TableCell>
+                    <TableCell>{agent.creator ?? '-'}</TableCell>
+                    <TableCell>{agent.price_per_use_credits || 'N/A'} Credits</TableCell>
                     <TableCell>
-                      <Badge className={`${agent.status === "active" ? "bg-green-100 text-green-800" : agent.status === "rejected" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
-                        {agent.status === "active" ? "Active" : agent.status === "rejected" ? "Rejected" : "Pending"}
+                      <Badge>
+                        {agent.status ?? 'N/A'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{new Date(agent.createdAt).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right">
-                      {agent.status === "pending" && (
-                        <>
-                          <Button variant="outline" size="icon" onClick={() => handleUpdateStatus(agent.id, "active")}>
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => handleUpdateStatus(agent.id, "rejected")}>
-                            <XCircle className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                      {agent.status === "active" && (
-                        <Button variant="outline" size="icon" onClick={() => handleUpdateStatus(agent.id, "rejected")}>
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {agent.status === "rejected" && (
-                        <Button variant="outline" size="icon" onClick={() => handleUpdateStatus(agent.id, "active")}>
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </TableCell>
+                    <TableCell>{agent.created_at ? new Date(agent.created_at).toLocaleDateString() : '-'}</TableCell>
+                    {/* Remove moderation actions if status is not present */}
                   </TableRow>
                 ))}
               </TableBody>

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (userWalletError || !userWallet || userWallet.balance < price)
     return NextResponse.json({ error: "Insufficient credits" }, { status: 400 });
 
-  // 3. Debit user, credit seller, log commission
+  // 3. Debit user, credit seller, credit admin (commission)
   const { error: debitError } = await supabase
     .from('wallets')
     .update({ balance: userWallet.balance - price })
@@ -51,6 +51,32 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .eq('user_id', sellerId);
   if (creditError) return NextResponse.json({ error: creditError.message }, { status: 500 });
 
+  // Credit admin (commission)
+  // Fetch admin user
+  const { data: adminUser, error: adminUserError } = await supabase
+    .from('users')
+    .select('id')
+    .eq('role', 'admin')
+    .single();
+  if (adminUserError || !adminUser) {
+    return NextResponse.json({ error: "Admin user not found" }, { status: 500 });
+  }
+  const adminId = adminUser.id;
+  // Fetch admin wallet
+  const { data: adminWallet, error: adminWalletError } = await supabase
+    .from('wallets')
+    .select('*')
+    .eq('user_id', adminId)
+    .single();
+  if (adminWalletError || !adminWallet) {
+    return NextResponse.json({ error: "Admin wallet not found" }, { status: 500 });
+  }
+  const { error: adminCreditError } = await supabase
+    .from('wallets')
+    .update({ balance: adminWallet.balance + commission })
+    .eq('user_id', adminId);
+  if (adminCreditError) return NextResponse.json({ error: adminCreditError.message }, { status: 500 });
+
   // Log transactions
   await supabase.from('credit_transactions').insert([
     {
@@ -63,7 +89,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     },
     {
       from_user_id: userId,
-      to_user_id: null,
+      to_user_id: adminId,
       agent_id: agentId,
       amount: commission,
       type: 'commission',

@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase"
 
 export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
+  console.log("Admin API user:", user);
 
   if (!user /* || user.role !== "admin" */) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
