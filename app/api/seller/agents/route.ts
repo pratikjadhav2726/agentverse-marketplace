@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth"
 // import { db } from "@/lib/mock-db"
+import { sqlite } from "@/lib/database";
+import { randomUUID } from "crypto";
 
 export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
@@ -31,41 +33,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields: name and price" }, { status: 400 })
     }
 
-    const newAgentData = {
-      sellerId: user.id,
-      creator: user.name,
-      name: body.basic.name,
-      description: body.basic.description,
-      capabilities: body.technical.capabilities || [],
-      a2aEndpoint: body.technical.a2aEndpoint,
-      dockerImage: body.technical.dockerImage,
-      metadata: {
-        version: body.basic.version,
-        category: body.basic.category,
-        tags: body.basic.tags,
-        inputSchema: body.technical.inputSchema,
-        outputSchema: body.technical.outputSchema,
-      },
-      pricing: {
-        amount: parseInt(body.pricing.amount, 10),
-        currency: "credits" as const,
-        type: "one-time" as const,
-      },
-      documentation: body.documentation.readme || "",
-      examples: (body.documentation.examples || []).map((ex: any) => ({
-        ...ex,
-        input: JSON.parse(ex.input || "{}"),
-        output: JSON.parse(ex.output || "{}"),
-      })),
-    }
+    // Insert new agent with status 'pending'
+    const agentId = randomUUID();
+    const now = new Date().toISOString();
+    sqlite.prepare(`
+      INSERT INTO agents (
+        id, owner_id, name, description, price_per_use_credits, price_subscription_credits, price_one_time_credits, status, created_at, category, tags, demo_url, documentation, requires_tools, tool_credits_per_use
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      agentId,
+      user.id,
+      body.basic.name,
+      body.basic.description || null,
+      parseInt(body.pricing.amount, 10),
+      null, // price_subscription_credits
+      null, // price_one_time_credits
+      'pending',
+      now,
+      body.basic.category || null,
+      (body.basic.tags || []).join(","),
+      null, // demo_url
+      body.documentation.readme || null,
+      (body.technical.capabilities || []).length > 0,
+      1 // tool_credits_per_use (default)
+    );
 
-    // A simple validation for example JSON might be needed here in a real app
-    // For now, we trust the input format from the form
+    // Optionally, insert agent_tools, etc. here if needed
 
-    // const createdAgent = db.agents.create(newAgentData)
-
-    // return NextResponse.json(createdAgent, { status: 201 })
-    return NextResponse.json({ message: "POST endpoint is not yet implemented with Supabase" }, { status: 501 })
+    return NextResponse.json({ id: agentId, status: 'pending' }, { status: 201 })
   } catch (error) {
     console.error("Failed to create agent:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })

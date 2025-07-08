@@ -54,7 +54,7 @@ export default function NewAgentPage() {
   const [newCapability, setNewCapability] = useState("")
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "seller")) {
+    if (!loading && !user) {
       router.push("/dashboard")
     }
   }, [user, loading, router])
@@ -173,7 +173,7 @@ export default function NewAgentPage() {
     )
   }
 
-  if (!user || user.role !== "seller") return null
+  if (!user) return null
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">

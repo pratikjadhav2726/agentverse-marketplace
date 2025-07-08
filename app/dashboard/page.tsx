@@ -73,6 +73,7 @@ export default function DashboardPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [loading, setLoading] = useState(true)
   const [addCreditsAmount, setAddCreditsAmount] = useState("")
+  const [creditsEarned, setCreditsEarned] = useState<number>(0);
 
   useEffect(() => {
     if (user) {
@@ -98,6 +99,13 @@ export default function DashboardPage() {
       if (purchasesResponse.ok) {
         const purchasesData = await purchasesResponse.json()
         setPurchases(purchasesData.purchases || [])
+      }
+
+      // Fetch credits earned as seller
+      const earnedResponse = await fetch(`/api/credits/earned?user_id=${user.id}`)
+      if (earnedResponse.ok) {
+        const { credits_earned } = await earnedResponse.json()
+        setCreditsEarned(credits_earned || 0)
       }
 
     } catch (error) {
@@ -222,7 +230,6 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Purchased Agents</CardTitle>
@@ -235,7 +242,6 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Recent Transactions</CardTitle>
@@ -248,19 +254,18 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-
-                 <Card>
-           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-             <CardTitle className="text-sm font-medium">Account Type</CardTitle>
-             <Star className="h-4 w-4 text-muted-foreground" />
-           </CardHeader>
-           <CardContent>
-             <div className="text-2xl font-bold capitalize">{(user as any).role || 'User'}</div>
-             <p className="text-xs text-muted-foreground">
-               Membership level
-             </p>
-           </CardContent>
-         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Credits Earned</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{creditsEarned}</div>
+            <p className="text-xs text-muted-foreground">
+              Earned from selling agents
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Main Content Tabs */}
@@ -323,14 +328,12 @@ export default function DashboardPage() {
                     Browse Marketplace
                   </Button>
                 </Link>
-                                 {(user as any).role === 'seller' && (
-                   <Link href="/seller/agents/new">
-                     <Button variant="outline" className="w-full justify-start">
-                       <Plus className="h-4 w-4 mr-2" />
-                       Create New Agent
-                     </Button>
-                   </Link>
-                 )}
+                <Link href="/seller/agents/new">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Sell Agents
+                  </Button>
+                </Link>
                 <Link href="/settings">
                   <Button variant="outline" className="w-full justify-start">
                     <Settings className="h-4 w-4 mr-2" />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth"
+import { sqlite } from "@/lib/database";
 // import { db } from "@/lib/mock-db"
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -20,13 +21,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       return NextResponse.json({ error: "Invalid status provided" }, { status: 400 })
     }
 
-    // const updatedAgent = db.agents.update(agentId, { status })
+    // Update agent status in the database
+    const result = sqlite.prepare('UPDATE agents SET status = ? WHERE id = ?').run(status, agentId);
+    if (result.changes === 0) {
+      return NextResponse.json({ error: "Agent not found" }, { status: 404 })
+    }
 
-    // if (!updatedAgent) {
-    //   return NextResponse.json({ error: "Agent not found" }, { status: 404 })
-    // }
-
-    // return NextResponse.json(updatedAgent)
+    return NextResponse.json({ id: agentId, status });
   } catch (error) {
     console.error(`Failed to update agent ${agentId}:`, error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })

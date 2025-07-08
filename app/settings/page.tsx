@@ -30,6 +30,7 @@ import {
 } from "lucide-react"
 import { PaymentMethodCard } from "@/components/payment/payment-method-card"
 import type { PaymentMethod } from "@/lib/payment-types"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth()
@@ -67,6 +68,15 @@ export default function SettingsPage() {
       rateLimitTier: "standard",
     },
   })
+  const [tools, setTools] = useState<any[]>([]);
+  const [credentials, setCredentials] = useState<any[]>([]);
+  const [credDialogOpen, setCredDialogOpen] = useState(false);
+  const [selectedTool, setSelectedTool] = useState<any>(null);
+  const [credForm, setCredForm] = useState({ credential_name: "", credential_value: "", credential_type: "api_key", expires_at: "" });
+  const [credLoading, setCredLoading] = useState(false);
+  const [customCredDialogOpen, setCustomCredDialogOpen] = useState(false);
+  const [customCredForm, setCustomCredForm] = useState({ credential_name: '', credential_value: '', credential_type: 'api_key', expires_at: '' });
+  const [customCredLoading, setCustomCredLoading] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -104,6 +114,86 @@ export default function SettingsPage() {
     }
   }, [user])
 
+  // Fetch tools and credentials for the user
+  useEffect(() => {
+    if (!user) return;
+    fetch("/api/tools")
+      .then((res) => res.json())
+      .then((data) => setTools(data.tools || []));
+    fetch(`/api/credentials?user_id=${user.id}`)
+      .then((res) => res.json())
+      .then((data) => setCredentials(data.credentials || []));
+  }, [user]);
+
+  const openCredDialog = (tool: any, cred?: any) => {
+    setSelectedTool(tool);
+    setCredForm({
+      credential_name: cred?.credential_name || "default",
+      credential_value: "",
+      credential_type: cred?.credential_type || tool.auth_type || "api_key",
+      expires_at: cred?.expires_at || "",
+    });
+    setCredDialogOpen(true);
+  };
+
+  const handleCredSave = async () => {
+    if (!user || !selectedTool) return;
+    setCredLoading(true);
+    await fetch("/api/credentials", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: user.id,
+        tool_id: selectedTool.id,
+        ...credForm,
+      }),
+    });
+    setCredDialogOpen(false);
+    setCredLoading(false);
+    // Refresh credentials
+    fetch(`/api/credentials?user_id=${user.id}`)
+      .then((res) => res.json())
+      .then((data) => setCredentials(data.credentials || []));
+  };
+
+  const handleCredDelete = async (cred: any) => {
+    if (!user) return;
+    await fetch(`/api/credentials?credential_id=${cred.id}&user_id=${user.id}`, { method: "DELETE" });
+    // Refresh credentials
+    fetch(`/api/credentials?user_id=${user.id}`)
+      .then((res) => res.json())
+      .then((data) => setCredentials(data.credentials || []));
+  };
+
+  const handleCustomCredSave = async () => {
+    if (!user) return;
+    setCustomCredLoading(true);
+    await fetch('/api/credentials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: user.id,
+        tool_id: 'custom',
+        ...customCredForm,
+      }),
+    });
+    setCustomCredDialogOpen(false);
+    setCustomCredLoading(false);
+    // Refresh credentials
+    fetch(`/api/credentials?user_id=${user.id}`)
+      .then((res) => res.json())
+      .then((data) => setCredentials(data.credentials || []));
+  };
+
+  const handleCustomCredDelete = async (cred: any) => {
+    if (!user) return;
+    await fetch(`/api/credentials?credential_id=${cred.id}&user_id=${user.id}`, { method: 'DELETE' });
+    // Refresh credentials
+    fetch(`/api/credentials?user_id=${user.id}`)
+      .then((res) => res.json())
+      .then((data) => setCredentials(data.credentials || []));
+  };
+
   const handleSave = async (section: string) => {
     // Mock save functionality
     await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -131,12 +221,12 @@ export default function SettingsPage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Settings</h1>
+        <h1 className="text-3xl font-bold mb-2">Welcome back, {(user as any)?.name || user?.email || 'User'}!</h1>
         <p className="text-muted-foreground">Manage your account settings and preferences</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Profile
@@ -156,6 +246,10 @@ export default function SettingsPage() {
           <TabsTrigger value="api" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             API
+          </TabsTrigger>
+          <TabsTrigger value="credentials" className="flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            Tool Credentials
           </TabsTrigger>
         </TabsList>
 
@@ -270,10 +364,10 @@ export default function SettingsPage() {
                 <div>
                   <p className="font-medium">Account Type</p>
                   <p className="text-sm text-muted-foreground">
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    {(user as any)?.role ? (user as any).role.charAt(0).toUpperCase() + (user as any).role.slice(1) : 'User'}
                   </p>
                 </div>
-                <Badge variant="default">{user.role}</Badge>
+                <Badge variant="default">{(user as any)?.role || 'User'}</Badge>
               </div>
             </CardContent>
           </Card>
@@ -658,6 +752,177 @@ export default function SettingsPage() {
               <Button variant="outline">View API Docs</Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="credentials" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tool Credentials</CardTitle>
+              <CardDescription>Manage your API keys and integrations for MCP tools</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {tools.map((tool) => {
+                  const cred = credentials.find((c) => c.tool_id === tool.id);
+                  return (
+                    <Card key={tool.id} className="border shadow-sm">
+                      <CardHeader>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg">{tool.name}</span>
+                          <Badge variant="secondary">{tool.category}</Badge>
+                        </div>
+                        <CardDescription>{tool.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="mb-2">
+                          <span className="text-xs text-muted-foreground">Auth Type: {tool.auth_type}</span>
+                        </div>
+                        <div className="mb-2">
+                          <span className="text-xs text-muted-foreground">{tool.api_endpoint}</span>
+                        </div>
+                        {cred ? (
+                          <>
+                            <div className="mb-2">
+                              <Badge variant="default">Credential Added</Badge>
+                            </div>
+                            <Button size="sm" variant="outline" onClick={() => openCredDialog(tool, cred)}>
+                              Update Credential
+                            </Button>
+                            <Button size="sm" variant="destructive" className="ml-2" onClick={() => handleCredDelete(cred)}>
+                              Remove
+                            </Button>
+                          </>
+                        ) : (
+                          <Button size="sm" onClick={() => openCredDialog(tool)}>
+                            Add Credential
+                          </Button>
+                        )}
+                        {tool.documentation_url && (
+                          <a href={tool.documentation_url} target="_blank" rel="noopener noreferrer" className="block mt-2 text-xs text-blue-600 underline">
+                            Tool Documentation
+                          </a>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              {/* Custom Credentials Section */}
+              <div className="mt-8">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-lg">Custom Credentials</h3>
+                  <Button size="sm" onClick={() => setCustomCredDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" /> Add Custom Credential
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {credentials.filter((c) => c.tool_id === 'custom').map((cred) => (
+                    <Card key={cred.id} className="border shadow-sm">
+                      <CardHeader>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg">{cred.credential_name}</span>
+                          <Badge variant="secondary">Custom</Badge>
+                        </div>
+                        <CardDescription>Custom credential for integrations or tools not listed above.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="mb-2">
+                          <span className="text-xs text-muted-foreground">Type: {cred.credential_type}</span>
+                        </div>
+                        <div className="mb-2">
+                          <span className="text-xs text-muted-foreground">Expires: {cred.expires_at || 'Never'}</span>
+                        </div>
+                        <Button size="sm" variant="destructive" onClick={() => handleCustomCredDelete(cred)}>
+                          Remove
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Dialog open={credDialogOpen} onOpenChange={setCredDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{selectedTool ? `Manage Credential for ${selectedTool.name}` : ""}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Credential Name</Label>
+                  <Input value={credForm.credential_name} onChange={e => setCredForm(f => ({ ...f, credential_name: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Credential Value</Label>
+                  <Input value={credForm.credential_value} onChange={e => setCredForm(f => ({ ...f, credential_value: e.target.value }))} type="password" />
+                </div>
+                <div>
+                  <Label>Credential Type</Label>
+                  <Select value={credForm.credential_type} onValueChange={v => setCredForm(f => ({ ...f, credential_type: v }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="api_key">API Key</SelectItem>
+                      <SelectItem value="oauth_token">OAuth Token</SelectItem>
+                      <SelectItem value="oauth_refresh_token">OAuth Refresh Token</SelectItem>
+                      <SelectItem value="username_password">Username/Password</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Expires At</Label>
+                  <Input value={credForm.expires_at} onChange={e => setCredForm(f => ({ ...f, expires_at: e.target.value }))} type="date" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCredSave} disabled={credLoading}>
+                  {credLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Save Credential"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Custom Credential Dialog */}
+          <Dialog open={customCredDialogOpen} onOpenChange={setCustomCredDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Custom Credential</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Credential Name</Label>
+                  <Input value={customCredForm.credential_name} onChange={e => setCustomCredForm(f => ({ ...f, credential_name: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Credential Value</Label>
+                  <Input value={customCredForm.credential_value} onChange={e => setCustomCredForm(f => ({ ...f, credential_value: e.target.value }))} type="password" />
+                </div>
+                <div>
+                  <Label>Credential Type</Label>
+                  <Select value={customCredForm.credential_type} onValueChange={v => setCustomCredForm(f => ({ ...f, credential_type: v }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="api_key">API Key</SelectItem>
+                      <SelectItem value="oauth_token">OAuth Token</SelectItem>
+                      <SelectItem value="oauth_refresh_token">OAuth Refresh Token</SelectItem>
+                      <SelectItem value="username_password">Username/Password</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Expires At</Label>
+                  <Input value={customCredForm.expires_at} onChange={e => setCustomCredForm(f => ({ ...f, expires_at: e.target.value }))} type="date" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCustomCredSave} disabled={customCredLoading}>
+                  {customCredLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Save Credential"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

@@ -36,6 +36,18 @@ export async function GET(
       ORDER BY r.created_at DESC
     `).all(id);
 
+    // Get examples for this agent
+    let examples: any[] = [];
+    try {
+      examples = sqlite.prepare(`SELECT description, input, output FROM agent_examples WHERE agent_id = ?`).all(id).map((ex: any) => ({
+        description: ex.description,
+        input: JSON.parse(ex.input),
+        output: JSON.parse(ex.output)
+      }));
+    } catch (e) {
+      examples = [];
+    }
+
     // Calculate average rating
     const avgRating = reviews.length > 0 
       ? reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / reviews.length 
@@ -49,7 +61,8 @@ export async function GET(
         tool_count: tools.length,
         reviews,
         averageRating: avgRating,
-        reviewCount: reviews.length
+        reviewCount: reviews.length,
+        examples // <-- add examples to response
       }
     });
   } catch (error) {
