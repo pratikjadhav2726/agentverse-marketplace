@@ -44,6 +44,8 @@
   Manage all company agents, shared configurations, billing, usage, user roles, and shared workflow repositories.
 - **Hierarchical Agent Management:**  
   Designate “manager” agents to orchestrate and allocate tasks to other agents dynamically.
+  <img width="1082" alt="image" src="https://github.com/user-attachments/assets/228b2a06-2fc2-4186-9565-fb791e36431c" />
+
 
 ### Platform-Wide Enhancements
 
