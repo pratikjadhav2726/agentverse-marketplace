@@ -38,7 +38,7 @@ export default function SellerAgentsPage() {
   useEffect(() => {
     if (authLoading) return
 
-    if (!user || user.role !== "seller") {
+    if (!user || user.role !== "user") {
       router.push("/dashboard")
       return
     }

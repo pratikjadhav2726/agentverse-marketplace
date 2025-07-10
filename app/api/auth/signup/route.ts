@@ -10,6 +10,9 @@ export async function POST(request: Request) {
     if (!email || !name || !role || !password) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
+    if (role !== 'admin' && role !== 'user') {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 })
+    }
     const existingUser = sqlite.prepare('SELECT * FROM users WHERE email = ?').get(email)
     if (existingUser) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 409 })

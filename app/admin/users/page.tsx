@@ -43,7 +43,7 @@ export default function AdminUsersPage() {
     fetchUsers()
   }, [currentUser, authLoading, router, toast])
 
-  const handleRoleChange = async (userId: string, role: "admin" | "seller" | "buyer") => {
+  const handleRoleChange = async (userId: string, role: "admin" | "user") => {
     try {
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PATCH",
@@ -103,22 +103,19 @@ export default function AdminUsersPage() {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name ?? '-'}</TableCell>
-                    <TableCell>{user.email}</TableCell>
+                    <TableCell className="font-medium">{user.email}</TableCell>
+                    <TableCell>{user.id}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
                           user.role === "admin"
                             ? "destructive"
-                            : user.role === "seller"
-                            ? "default"
-                            : "secondary"
+                            : "default"
                         }
                       >
-                        {user.role}
+                        {user.role === "admin" ? "Admin" : "User"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{user.credits ?? '-'}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -128,15 +125,8 @@ export default function AdminUsersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleRoleChange(user.id, "admin")}>
-                            Make Admin
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRoleChange(user.id, "seller")}>
-                            Make Seller
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRoleChange(user.id, "buyer")}>
-                            Make Buyer
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRoleChange(user.id, "admin")}>Make Admin</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRoleChange(user.id, "user")}>Make User</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

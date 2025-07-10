@@ -16,14 +16,16 @@ import Link from "next/link"
 import { ShoppingCart, Store, Users } from "lucide-react"
 
 export default function SignUpPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    role: "buyer" as "buyer" | "seller",
-    agreeToTerms: false,
-  })
+  const [formData, setFormData] = useState<{ name: string; email: string; password: string; confirmPassword: string; role: "user" | "admin"; agreeToTerms: boolean; }>(
+    {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: "user",
+      agreeToTerms: false,
+    }
+  )
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const { signup } = useAuth()
@@ -67,18 +69,13 @@ export default function SignUpPage() {
     }
   }
 
+  // Only one role option: user
   const roleOptions = [
     {
-      value: "buyer",
-      label: "Buyer",
-      description: "Purchase and use AI agents for your projects",
-      icon: ShoppingCart,
-    },
-    {
-      value: "seller",
-      label: "Seller",
-      description: "Create and sell AI agents to the community",
-      icon: Store,
+      value: "user",
+      label: "User",
+      description: "Buy and sell AI agents using your wallet credits.",
+      icon: Users,
     },
   ]
 
@@ -145,7 +142,7 @@ export default function SignUpPage() {
               <Label className="text-base font-medium">I want to:</Label>
               <RadioGroup
                 value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value as "buyer" | "seller" })}
+                onValueChange={(value: "user" | "admin") => setFormData({ ...formData, role: value })}
                 className="mt-2"
               >
                 {roleOptions.map((option) => (

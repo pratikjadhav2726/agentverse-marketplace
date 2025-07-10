@@ -7,7 +7,7 @@ import type { User } from "@/lib/types"
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<boolean>
-  signup: (userData: { name: string; email: string; role: "buyer" | "seller"; password: string }) => Promise<boolean>
+  signup: (userData: { name: string; email: string; role: "user" | "admin"; password: string }) => Promise<boolean>
   logout: () => Promise<void>
   loading: boolean
   refetchUser?: () => void
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signup = async (userData: { name: string; email: string; role: "buyer" | "seller"; password: string }): Promise<boolean> => {
+  const signup = async (userData: { name: string; email: string; role: "user" | "admin"; password: string }): Promise<boolean> => {
     setLoading(true)
     try {
       const response = await fetch("/api/auth/signup", {

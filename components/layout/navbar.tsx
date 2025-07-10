@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { User, Settings, LogOut, ShoppingCart, Store, Shield, Sun, Moon, Monitor } from "lucide-react"
+import { User, Settings, LogOut, ShoppingCart, Store, Shield, Sun, Moon, Monitor, Users } from "lucide-react"
 import { useTheme } from "next-themes"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
@@ -22,10 +22,8 @@ export function Navbar() {
     switch (role) {
       case "admin":
         return <Shield className="h-4 w-4" />
-      case "seller":
-        return <Store className="h-4 w-4" />
-      case "buyer":
-        return <ShoppingCart className="h-4 w-4" />
+      case "user":
+        return <Users className="h-4 w-4" />
       default:
         return <User className="h-4 w-4" />
     }
@@ -35,10 +33,8 @@ export function Navbar() {
     switch (role) {
       case "admin":
         return "destructive"
-      case "seller":
+      case "user":
         return "default"
-      case "buyer":
-        return "secondary"
       default:
         return "outline"
     }
@@ -60,9 +56,9 @@ export function Navbar() {
               <Link href="/marketplace" className="text-sm font-medium hover:text-primary">
                 Marketplace
               </Link>
-              {user?.role === "seller" && (
+              {user?.role === "user" && (
                 <Link href="/seller" className="text-sm font-medium hover:text-primary">
-                  Seller Dashboard
+                  Sales Dashboard
                 </Link>
               )}
               {user?.role === "admin" && (
@@ -94,7 +90,7 @@ export function Navbar() {
                       <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {getRoleIcon(user.role)}
-                        <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
+                        <Badge variant={getRoleBadgeVariant(user.role)}>{user.role === "admin" ? "Admin" : "User"}</Badge>
                       </div>
                     </div>
                   </div>

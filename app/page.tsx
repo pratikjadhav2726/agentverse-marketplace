@@ -14,12 +14,12 @@ export default function HomePage() {
   const [buyerClicked, setBuyerClicked] = useState(false)
 
   const handleStartSelling = (e: React.MouseEvent) => {
-    if (user && user.role === "buyer") {
+    if (user && user.role === "user") {
       e.preventDefault()
-      setBuyerClicked(true)
+      // No upgrade needed, user can sell
       toast({
-        title: "Become a Seller",
-        description: "To sell agents, please upgrade your account to a seller in your account settings.",
+        title: "Sell Agents",
+        description: "You can list your agents for sale from your dashboard.",
         variant: "default",
       })
     }
@@ -94,12 +94,7 @@ export default function HomePage() {
                 <Link href="/auth/signup">Start Selling Agents</Link>
               </Button>
             )}
-            {user && user.role === "seller" && (
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/seller/agents">Start Selling Agents</Link>
-              </Button>
-            )}
-            {user && user.role === "buyer" && (
+            {user && user.role === "user" && (
               <Button size="lg" variant="outline" asChild onClick={handleStartSelling}>
                 <Link href="#">Start Selling Agents</Link>
               </Button>

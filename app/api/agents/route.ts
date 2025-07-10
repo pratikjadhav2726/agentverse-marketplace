@@ -86,11 +86,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify owner exists and is a seller
+    // Verify owner exists and is a user
     const owner = sqlite.prepare('SELECT role FROM users WHERE id = ?').get(owner_id) as { role: string };
-    if (!owner || owner.role !== 'seller') {
+    if (!owner || owner.role !== 'user') {
       return NextResponse.json(
-        { error: 'Owner must be a seller' },
+        { error: 'Owner must be a user' },
         { status: 403 }
       );
     }

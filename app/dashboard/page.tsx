@@ -303,7 +303,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Rate: $1 = 1 Credit
+                    Rate: $1 = 100 Credits
                   </div>
                   <Button type="submit" className="w-full">
                     <CreditCard className="h-4 w-4 mr-2" />

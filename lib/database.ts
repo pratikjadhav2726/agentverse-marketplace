@@ -44,8 +44,9 @@ export function initializeDatabase() {
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
         email TEXT UNIQUE NOT NULL,
         name TEXT,
-        role TEXT CHECK (role IN ('admin', 'seller', 'buyer')) NOT NULL DEFAULT 'buyer',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        role TEXT CHECK (role IN ('admin', 'user')) NOT NULL DEFAULT 'user',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        password TEXT
       )
     `);
 
@@ -212,20 +213,20 @@ function seedDatabase() {
         adminId, 'admin@agentverse.com', 'Admin User', 'admin', 'password'
       );
 
-      const sellerId = 'seller-id-12345678';
+      const user1Id = 'user1-id-12345678';
       sqlite.prepare('INSERT INTO users (id, email, name, role, password) VALUES (?, ?, ?, ?, ?)').run(
-        sellerId, 'seller@agentverse.com', 'Sample Seller', 'seller', 'password'
+        user1Id, 'user1@agentverse.com', 'Sample User 1', 'user', 'password'
       );
 
-      const buyerId = 'buyer-id-12345678';
+      const user2Id = 'user2-id-12345678';
       sqlite.prepare('INSERT INTO users (id, email, name, role, password) VALUES (?, ?, ?, ?, ?)').run(
-        buyerId, 'buyer@agentverse.com', 'Sample Buyer', 'buyer', 'password'
+        user2Id, 'user2@agentverse.com', 'Sample User 2', 'user', 'password'
       );
 
       // Insert wallets
       sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(adminId, 100000);
-      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(sellerId, 5000);
-      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(buyerId, 1000);
+      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(user1Id, 5000);
+      sqlite.prepare('INSERT INTO wallets (user_id, balance) VALUES (?, ?)').run(user2Id, 1000);
 
       // Insert sample MCP tools
       const tool1Id = 'tool-google-sheets';
@@ -279,7 +280,7 @@ function seedDatabase() {
         INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        agent1Id, sellerId,
+        agent1Id, adminId,
         'Smart Spreadsheet Assistant',
         'AI agent that reads, analyzes, and updates Google Sheets automatically. Can generate reports, clean data, and perform calculations.',
         15, 150, 'Productivity', 'spreadsheets,google-sheets,data-analysis', 1, 2
@@ -290,7 +291,7 @@ function seedDatabase() {
         INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_subscription_credits, category, tags, requires_tools, tool_credits_per_use)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        agent2Id, sellerId,
+        agent2Id, adminId,
         'Team Communication Bot',
         'AI agent that helps manage team communications across Slack and email. Can schedule messages, analyze sentiment, and generate summaries.',
         30, 600, 'Communication', 'slack,email,team-management', 1, 3
@@ -301,7 +302,7 @@ function seedDatabase() {
         INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        agent3Id, sellerId,
+        agent3Id, adminId,
         'Data Analyzer AI',
         'Powerful AI agent for analyzing datasets and generating insights. Works without external tools.',
         50, 800, 'Data Science', 'data-analysis,insights,visualization', 0, 0

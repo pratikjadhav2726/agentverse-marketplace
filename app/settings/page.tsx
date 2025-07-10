@@ -364,10 +364,12 @@ export default function SettingsPage() {
                 <div>
                   <p className="font-medium">Account Type</p>
                   <p className="text-sm text-muted-foreground">
-                    {(user as any)?.role ? (user as any).role.charAt(0).toUpperCase() + (user as any).role.slice(1) : 'User'}
+                    {user?.role === "admin"
+                      ? "Admin"
+                      : "User"}
                   </p>
                 </div>
-                <Badge variant="default">{(user as any)?.role || 'User'}</Badge>
+                <Badge variant={user?.role === "admin" ? "destructive" : "default"}>{user?.role === "admin" ? "Admin" : "User"}</Badge>
               </div>
             </CardContent>
           </Card>

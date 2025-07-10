@@ -21,7 +21,7 @@ export default function SellerDashboard() {
   const { toast } = useToast()
 
   useEffect(() => {
-    if (!authLoading && (!user || user.role !== "seller")) {
+    if (!authLoading && (!user || user.role !== "user")) {
       router.push("/dashboard")
       return
     }
@@ -99,8 +99,8 @@ export default function SellerDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Seller Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {user.name}!</p>
+        <h1 className="text-3xl font-bold mb-2">Sales Dashboard</h1>
+        <p className="text-muted-foreground">Welcome back, {user.email}!</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
