@@ -26,3 +26,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .cursor/rules/agentverse.mdc
+.DS_Store

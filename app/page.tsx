@@ -164,11 +164,14 @@ export default function HomePage() {
             </Button>
             <Button
               size="lg"
-              variant="outline"
-              className="border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary"
+              variant="default"
+              className="font-semibold shadow-lg hover:scale-105 transition-transform"
               asChild
             >
-              <Link href="/contact">Contact Sales</Link>
+              <Link href="/contact">
+                <span>Contact Sales</span>
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
           </div>
         </div>

@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { User, Settings, LogOut, ShoppingCart, Store, Shield } from "lucide-react"
+import { User, Settings, LogOut, ShoppingCart, Store, Shield, Sun, Moon, Monitor } from "lucide-react"
+import { useTheme } from "next-themes"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 export function Navbar() {
   const { user, logout } = useAuth()
@@ -69,6 +71,9 @@ export function Navbar() {
                 </Link>
               )}
             </div>
+            {/* Theme Toggle Start */}
+            <ThemeToggle />
+            {/* Theme Toggle End */}
           </div>
 
           <div className="flex items-center space-x-4">
@@ -127,5 +132,20 @@ export function Navbar() {
         </div>
       </div>
     </nav>
+  )
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+  const isDark = theme === "dark"
+  return (
+    <button
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={isDark ? "Switch to day mode" : "Switch to night mode"}
+      className="rounded-full p-2 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
+      type="button"
+    >
+      {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+    </button>
   )
 }
