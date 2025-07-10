@@ -2,6 +2,7 @@ export type User = {
   id: string;
   email: string;
   created_at: string;
+  role: "admin" | "seller" | "buyer";
 };
 
 export type Agent = {

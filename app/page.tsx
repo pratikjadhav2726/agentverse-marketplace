@@ -1,10 +1,30 @@
+"use client"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRight, Bot, Zap, Shield, Globe, Users, TrendingUp, GitMerge } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function HomePage() {
+  const { user } = useAuth()
+  const { toast } = useToast()
+  const [buyerClicked, setBuyerClicked] = useState(false)
+
+  const handleStartSelling = (e: React.MouseEvent) => {
+    if (user && user.role === "buyer") {
+      e.preventDefault()
+      setBuyerClicked(true)
+      toast({
+        title: "Become a Seller",
+        description: "To sell agents, please upgrade your account to a seller in your account settings.",
+        variant: "default",
+      })
+    }
+  }
+
   const features = [
     {
       icon: GitMerge,
@@ -69,9 +89,21 @@ export default function HomePage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/auth/signup">Start Selling Agents</Link>
-            </Button>
+            {(!user || !user.role) && (
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/auth/signup">Start Selling Agents</Link>
+              </Button>
+            )}
+            {user && user.role === "seller" && (
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/seller/agents">Start Selling Agents</Link>
+              </Button>
+            )}
+            {user && user.role === "buyer" && (
+              <Button size="lg" variant="outline" asChild onClick={handleStartSelling}>
+                <Link href="#">Start Selling Agents</Link>
+              </Button>
+            )}
           </div>
         </div>
       </section>
