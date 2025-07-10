@@ -117,6 +117,18 @@ export async function POST(
       sqlite.prepare('UPDATE wallets SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?')
         .run(sellerAmount, agent.owner_id);
 
+      // 3b. Update admin's wallet (add commission)
+      if (platformCommission > 0) {
+        const adminId = '00000000-0000-0000-0000-000000000001';
+        // Ensure admin wallet exists
+        const adminWallet = sqlite.prepare('SELECT * FROM wallets WHERE user_id = ?').get(adminId) as Wallet;
+        if (!adminWallet) {
+          throw new Error('Admin wallet not found');
+        }
+        sqlite.prepare('UPDATE wallets SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?')
+          .run(platformCommission, adminId);
+      }
+
       // 4. Create credit transaction record for purchase
       sqlite.prepare(`
         INSERT INTO credit_transactions (id, from_user_id, to_user_id, agent_id, amount, type, metadata)
@@ -139,12 +151,14 @@ export async function POST(
       // 5. Create commission transaction record if commission > 0
       if (platformCommission > 0) {
         const commissionTxId = 'commission-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        const adminId = '00000000-0000-0000-0000-000000000001';
         sqlite.prepare(`
-          INSERT INTO credit_transactions (id, from_user_id, agent_id, amount, type, metadata)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO credit_transactions (id, from_user_id, to_user_id, agent_id, amount, type, metadata)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `).run(
           commissionTxId,
           agent.owner_id,
+          adminId,
           agentId,
           platformCommission,
           'commission',
