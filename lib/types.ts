@@ -1,8 +1,10 @@
 export type User = {
   id: string;
   email: string;
+  name?: string;
   created_at: string;
   role: "admin" | "user";
+  credits?: number;
 };
 
 export type Agent = {
@@ -13,7 +15,11 @@ export type Agent = {
   price_per_use_credits: number;
   price_subscription_credits?: number;
   price_one_time_credits?: number;
+  status?: string;
   created_at: string;
+  creator?: string;
+  category?: string;
+  tags?: string;
 };
 
 export type Wallet = {
