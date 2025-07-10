@@ -211,6 +211,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
           {/* Always show dashboard cards for now, since user.role is not available */}
+          {/*
           <Card className="bg-secondary/50">
             <CardHeader>
               <CardTitle>Become a Seller</CardTitle>
@@ -233,6 +234,7 @@ export default function DashboardPage() {
               </Link>
             </CardContent>
           </Card>
+          */}
         </div>
       </div>
     </div>
