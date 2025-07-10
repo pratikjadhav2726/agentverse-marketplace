@@ -445,8 +445,9 @@ export default function DashboardPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+          */}
+        </div>
+      </div>
     </div>
   )
 }

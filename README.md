@@ -1,8 +1,19 @@
 # AgentVerse Marketplace
 
-**[📚 Supabase Setup & DB Schema Tutorial →](./SUPABASE_TUTORIAL.md)**
-
 **AgentVerse Marketplace** is a next-generation platform designed to simplify the development, deployment, discovery, and collaboration of AI agents. It empowers sellers, buyers, and collaborative teams (“AI agent companies”) by providing robust abstractions and tools over complex infrastructure, making AI agent marketplaces accessible and powerful for all users.
+
+---
+
+## ⚡️ Database & Environment Setup
+
+**Staging & Local Development:**
+- The project now uses **SQLite** for staging and local development environments. No external database setup is required to get started locally.
+- Supabase integration is currently paused and not required for running or testing the platform in development/staging.
+- All data is stored in a local SQLite file or in-memory mock database for rapid prototyping and testing.
+
+> **Note:** If you are looking for the previous Supabase setup, see `SUPABASE_TUTORIAL.md`. This is not required for local development or staging at this time.
+
+---
 
 ## Key Features
 
@@ -44,6 +55,8 @@
   Manage all company agents, shared configurations, billing, usage, user roles, and shared workflow repositories.
 - **Hierarchical Agent Management:**  
   Designate “manager” agents to orchestrate and allocate tasks to other agents dynamically.
+  <img width="1082" alt="image" src="https://github.com/user-attachments/assets/228b2a06-2fc2-4186-9565-fb791e36431c" />
+
 
 ### Platform-Wide Enhancements
 
