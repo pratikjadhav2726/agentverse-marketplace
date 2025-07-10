@@ -1,25 +1,34 @@
 import { NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { sqlite } from "@/lib/database"
+import { signJwt } from "@/lib/utils"
+import { cookies } from "next/headers"
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json()
-
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
-
-    // In a real app, you would hash the password and compare it.
-    // Here we'll just find the user by email.
-    const { data: user, error } = await supabase.from('users').select('*').eq('email', email).single();
-
-    if (error || !user) {
+    const user = sqlite.prepare('SELECT * FROM users WHERE email = ?').get(email) as {
+      id: string;
+      email: string;
+      name: string;
+      role: string;
+      created_at: string;
+      password: string;
+    } | undefined;
+    if (!user || user.password !== password) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
-
-    // Don't send the password back to the client
-    const { ...userWithoutPassword } = user
-
+    const { password: _pw, ...userWithoutPassword } = user
+    const token = await signJwt({ id: user.id, email: user.email, role: user.role })
+    cookies().set("auth_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 30,
+      path: "/"
+    })
     return NextResponse.json({ user: userWithoutPassword })
   } catch (error) {
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })

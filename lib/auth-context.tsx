@@ -1,16 +1,17 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
+import { useEffect, useState, createContext, useContext } from "react"
 import type { User } from "@/lib/types"
 
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<boolean>
-  signup: (userData: { name: string; email: string; role: "buyer" | "seller" }) => Promise<boolean>
-  logout: () => void
+  signup: (userData: { name: string; email: string; role: "buyer" | "seller"; password: string }) => Promise<boolean>
+  logout: () => Promise<void>
   loading: boolean
   refetchUser?: () => void
+  authFetch: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -19,65 +20,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchUser = async () => {
-    // In a real app, this would fetch from an API endpoint like /api/user/me
-    // For now, we'll just re-read from localStorage for this mock setup.
-    const savedUser = localStorage.getItem("agentverse-user")
-    if (savedUser) {
+  // On mount, fetch current user from /api/auth/me
+  useEffect(() => {
+    const fetchMe = async () => {
+      setLoading(true)
       try {
-        setUser(JSON.parse(savedUser))
-      } catch (error) {
-        console.error("Failed to parse user from localStorage", error)
-        localStorage.removeItem("agentverse-user")
+        const res = await fetch("/api/auth/me", { credentials: "include" })
+        if (res.ok) {
+          const data = await res.json()
+          setUser(data.user)
+        } else {
+          setUser(null)
+        }
+      } catch {
         setUser(null)
+      } finally {
+        setLoading(false)
       }
     }
-    setLoading(false)
-  }
-
-  // Check for existing session on mount
-  useEffect(() => {
-    fetchUser()
+    fetchMe()
   }, [])
 
-  const login = async (email: string, password?: string) => {
+  const login = async (email: string, password: string) => {
     setLoading(true)
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password: password || "password" }), // Password is not used in mock
+        body: JSON.stringify({ email, password }),
+        credentials: "include"
       })
       const data = await response.json()
       if (!response.ok) {
         throw new Error(data.error || "Login failed")
       }
       setUser(data.user)
-      localStorage.setItem("agentverse-user", JSON.stringify(data.user))
-      return data.user
+      return true
     } catch (error) {
       console.error("Login error:", error)
-      logout() // Clear user state on error
-      throw error
+      setUser(null)
+      return false
     } finally {
       setLoading(false)
     }
   }
 
-  const signup = async (userData: { name: string; email: string; role: "buyer" | "seller" }): Promise<boolean> => {
+  const signup = async (userData: { name: string; email: string; role: "buyer" | "seller"; password: string }): Promise<boolean> => {
     setLoading(true)
     try {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
+        credentials: "include"
       })
-
       if (!response.ok) return false
-
       const { user } = await response.json()
       setUser(user)
-      localStorage.setItem("agentverse-user", JSON.stringify(user))
       return true
     } catch (error) {
       return false
@@ -86,12 +85,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem("agentverse-user")
+  const logout = async () => {
+    setLoading(true)
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  return <AuthContext.Provider value={{ user, login, signup, logout, loading, refetchUser: fetchUser }}>{children}</AuthContext.Provider>
+  // Helper for authenticated fetch
+  const authFetch = async (input: RequestInfo, init: RequestInit = {}) => {
+    return fetch(input, { ...init, credentials: "include" })
+  }
+
+  return <AuthContext.Provider value={{ user, login, signup, logout, loading, refetchUser: undefined, authFetch }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

@@ -52,6 +52,7 @@ export default function SignUpPage() {
         name: formData.name,
         email: formData.email,
         role: formData.role,
+        password: formData.password,
       })
 
       if (success) {

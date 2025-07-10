@@ -208,18 +208,18 @@ function seedDatabase() {
     if (!adminExists) {
       // Insert users
       const adminId = 'admin-id-12345678';
-      sqlite.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(
-        adminId, 'admin@agentverse.com', 'Admin User', 'admin'
+      sqlite.prepare('INSERT INTO users (id, email, name, role, password) VALUES (?, ?, ?, ?, ?)').run(
+        adminId, 'admin@agentverse.com', 'Admin User', 'admin', 'password'
       );
 
       const sellerId = 'seller-id-12345678';
-      sqlite.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(
-        sellerId, 'seller@agentverse.com', 'Sample Seller', 'seller'
+      sqlite.prepare('INSERT INTO users (id, email, name, role, password) VALUES (?, ?, ?, ?, ?)').run(
+        sellerId, 'seller@agentverse.com', 'Sample Seller', 'seller', 'password'
       );
 
       const buyerId = 'buyer-id-12345678';
-      sqlite.prepare('INSERT INTO users (id, email, name, role) VALUES (?, ?, ?, ?)').run(
-        buyerId, 'buyer@agentverse.com', 'Sample Buyer', 'buyer'
+      sqlite.prepare('INSERT INTO users (id, email, name, role, password) VALUES (?, ?, ?, ?, ?)').run(
+        buyerId, 'buyer@agentverse.com', 'Sample Buyer', 'buyer', 'password'
       );
 
       // Insert wallets

@@ -40,9 +40,9 @@ export default function SignInPage() {
 
   const quickLogin = async (userType: string) => {
     const emails = {
-      admin: "admin@example.com",
-      seller: "bob@example.com",
-      buyer: "alice@example.com",
+      admin: "admin@agentverse.com",
+      seller: "seller@agentverse.com",
+      buyer: "buyer@agentverse.com",
     }
 
     setLoading(true)
