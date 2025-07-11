@@ -158,14 +158,14 @@ export default function SellerAgentsPage() {
                             <p className="flex items-center gap-1 text-muted-foreground">
                               <Star className="w-4 h-4" /> Rating
                             </p>
-                            <p className="font-medium">{agent.ratings?.average?.toFixed(1) ?? 'N/A'}</p>
+                            <p className="font-medium">N/A</p>
                           </div>
                           <div>
                             <p className="flex items-center gap-1 text-muted-foreground">
                               <Calendar className="w-4 h-4" /> Updated
                             </p>
                             <p className="font-medium">
-                              {new Date(agent.updatedAt).toLocaleDateString()}
+                              {new Date(agent.created_at).toLocaleDateString()}
                             </p>
                           </div>
                         </div>

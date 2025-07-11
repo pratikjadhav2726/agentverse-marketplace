@@ -7,15 +7,36 @@ import { randomUUID } from "crypto";
 export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
 
+  console.log("Seller agents API - User:", user?.id, user?.email)
+
   if (!user) {
+    console.log("Seller agents API - No user found")
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // const allAgents = db.agents.getAll()
-  // const sellerAgents = allAgents.filter((agent) => agent.sellerId === user.id)
-
-  // return NextResponse.json(sellerAgents)
-  return NextResponse.json({ message: "GET endpoint is not yet implemented with SQLite" }, { status: 501 })
+  try {
+    const agents = sqlite.prepare(`
+      SELECT 
+        a.*,
+        COUNT(DISTINCT p.id) as purchase_count,
+        COUNT(DISTINCT r.id) as review_count,
+        COALESCE(AVG(r.rating), 0) as average_rating,
+        COALESCE(SUM(CASE WHEN ct.type = 'commission' THEN ct.amount ELSE 0 END), 0) as total_earnings
+      FROM agents a
+      LEFT JOIN purchases p ON a.id = p.agent_id
+      LEFT JOIN reviews r ON a.id = r.agent_id
+      LEFT JOIN credit_transactions ct ON a.id = ct.agent_id AND ct.type = 'commission'
+      WHERE a.owner_id = ?
+      GROUP BY a.id
+      ORDER BY a.created_at DESC
+    `).all(user.id);
+    
+    console.log("Seller agents API - Found agents:", agents.length)
+    return NextResponse.json(agents)
+  } catch (error) {
+    console.error("Failed to fetch seller agents:", error)
+    return NextResponse.json({ error: "Something went wrong" }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {

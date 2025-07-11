@@ -9,16 +9,31 @@ import { verifyJwt } from "@/lib/utils"
  * For our mock setup, we'll check for a 'user-id' header.
  */
 export async function getUserFromRequest(req: NextRequest): Promise<User | null> {
-  // Expect header: Authorization: Bearer <token>
+  // Try to get token from Authorization header first
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization")
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  let token: string | null = null
+  
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.slice(7)
+  } else {
+    // Try to get token from cookies
+    const cookies = req.cookies
+    token = cookies.get("auth_token")?.value || null
+  }
+  
+  if (!token) {
     return null
   }
-  const token = authHeader.slice(7)
-  const payload = await verifyJwt(token)
-  if (!payload || !payload.id) {
+  
+  try {
+    const payload = await verifyJwt(token)
+    if (!payload || !payload.id) {
+      return null
+    }
+    const user = sqlite.prepare('SELECT * FROM users WHERE id = ?').get(payload.id) as User | undefined;
+    return user || null
+  } catch (error) {
+    console.error("Error verifying JWT:", error)
     return null
   }
-  const user = sqlite.prepare('SELECT * FROM users WHERE id = ?').get(payload.id) as User | undefined;
-  return user || null
 } 
