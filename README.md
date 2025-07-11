@@ -4,6 +4,8 @@
 
 **AgentVerse Marketplace** is a next-generation platform designed to simplify the development, deployment, discovery, and collaboration of AI agents. It empowers sellers, buyers, and collaborative teams (“AI agent companies”) by providing robust abstractions and tools over complex infrastructure, making AI agent marketplaces accessible and powerful for all users.
 
+---
+
 ## Key Features
 
 ### For Sellers: Effortless Agent Submission & Management
@@ -53,6 +55,63 @@
   Transparent usage tracking, predictive costing tools, and detailed dashboards for both buyers and sellers.
 - **AI-Powered Assistance:**  
   Intelligent agent and workflow recommendations, and an AI troubleshooting assistant for debugging and support.
+
+---
+
+## 🚀 Project Updates & Changelog
+
+We believe in transparency and open communication with our community. Here you'll find regular updates on the progress of AgentVerse Marketplace, including UI improvements, backend features, database changes, and more. We welcome your feedback and contributions!
+
+### Recent Highlights
+- **UI:** Modern, responsive dashboard and marketplace pages implemented. Enhanced agent cards, review forms, and workflow builder for a seamless user experience.
+- **Database:** Core schema established using Supabase. User, agent, purchase, and review tables are live. Mock DB available for local development.
+- **Backend:** RESTful API endpoints for agent management, purchases, reviews, payments, and workflows. Modular structure for scalability and maintainability.
+- **Credit System:** Initial credit purchase and consumption logic in place. Users can buy credits, spend on agents, and view transaction history.
+- **Authentication:** Secure login/signup with session management. Seller and buyer roles supported.
+- **Payments:** Stripe integration for agent and credit purchases. Webhooks and payout logic for sellers.
+- **Testing & Playground:** Built-in agent playground for sellers to test agents before publishing.
+- **Open Source:** Following best practices—clear code structure, documentation, and community guidelines. See [CONTRIBUTING.md](./CONTRIBUTING.md) (coming soon) for how to get involved!
+
+_Stay tuned for more updates. We value your input—open an issue or join the discussion to help shape AgentVerse!_
+
+---
+
+## 🛡️ System Architecture & Security Details
+
+AgentVerse Marketplace is designed with security, transparency, and extensibility in mind. Below are the core technical details of the system:
+
+### Authentication
+- **Cookie-Based JWT Auth:**
+  - Users authenticate via email and password.
+  - On login/signup, a JWT is issued and stored in a secure, HTTP-only cookie (`auth_token`).
+  - The cookie is set with `httpOnly`, `secure` (in production), `sameSite=lax`, and a 30-minute expiry for session security.
+  - All protected routes validate the JWT from the cookie; users are redirected to sign in if not authenticated.
+  - Role-based access control is enforced (admin, seller, buyer).
+
+### Credit System
+- **Wallets & Transactions:**
+  - Each user has a wallet with a credit balance (1 credit = $1 USD equivalent).
+  - Credits are purchased via Stripe and credited to the user's wallet.
+  - All credit changes (purchases, agent/tool usage, payouts, commissions) are logged in the `credit_transactions` table for full auditability.
+  - Credits are debited for agent usage, tool invocations, and purchases; sellers and the platform receive commissions automatically.
+  - Insufficient credits block transactions, ensuring no negative balances.
+
+### Credential Management
+- **Encrypted Storage:**
+  - User credentials (API keys, OAuth tokens, etc.) for external tools are stored in the `user_credentials` table.
+  - All credential values are encrypted at rest using AES-256-CBC with a random IV and a strong key (from environment variable in production).
+  - Only the credential owner can access or modify their credentials; encrypted values are never exposed via API.
+  - Credentials are decrypted only at the time of secure tool invocation.
+
+### Security Best Practices
+- **Session Security:** JWTs are signed with a strong secret and never exposed to client-side JS.
+- **Database Security:** All queries use parameterized statements to prevent SQL injection. Foreign key constraints enforce data integrity.
+- **Access Control:** Only authorized users can access or modify their data. Agents must be explicitly linked to tools to use them.
+- **Audit Logging:** All credit and tool usage is logged for transparency and compliance.
+- **Input Validation:** All API endpoints validate input and enforce required fields and types.
+- **Future Enhancements:** Plans for OAuth 2.0, rate limiting, credential rotation, and advanced analytics are in the roadmap.
+
+For more details, see [MCP_TOOLS_GUIDE.md](./MCP_TOOLS_GUIDE.md) and [MARKETPLACE_SETUP.md](./MARKETPLACE_SETUP.md).
 
 ---
 
