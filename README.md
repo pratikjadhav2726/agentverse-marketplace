@@ -1,6 +1,6 @@
 # AgentVerse Marketplace
 
-**[📚 Supabase Setup & DB Schema Tutorial →](./SUPABASE_TUTORIAL.md)**
+![Screen Recording 2025-07-11 at 2 09 00 AM (1)](https://github.com/user-attachments/assets/5e552f28-3b79-43ff-8bbc-bb5001fb9d2b)
 
 **AgentVerse Marketplace** is a next-generation platform designed to simplify the development, deployment, discovery, and collaboration of AI agents. It empowers sellers, buyers, and collaborative teams (“AI agent companies”) by providing robust abstractions and tools over complex infrastructure, making AI agent marketplaces accessible and powerful for all users.
 
@@ -18,7 +18,7 @@
   Sellers can run example usage and test cases from their dashboard, with real-time logs, payloads, and performance feedback.
 - **Agent Templates & Starters:**  
   Pre-built agent templates and Dockerfiles for common use cases allow quick starts for sellers.
-<img width="1464" alt="image" src="https://github.com/user-attachments/assets/e09faa34-f633-4520-a7a6-96154f3c178b" />
+
 
 ### For Buyers: Intuitive Agent Discovery & Orchestration
 
@@ -32,7 +32,7 @@
   Drag-and-drop canvas to orchestrate multi-agent workflows, with connectors, parameter mapping, and control flow components (if/else, loops, human-in-the-loop). Includes workflow templates, real-time execution visualization, and configurable output dashboards.
 - **Workflow Execution & API Access:**  
   Manual and scheduled workflow triggers, plus auto-generated API endpoints for integration.
-<img width="1460" alt="image" src="https://github.com/user-attachments/assets/03d902d1-aa9d-4f39-82da-d3ef6dab2648" />
+
 
 ### For AI Agent Companies: Collaboration & Shared Resources
 
