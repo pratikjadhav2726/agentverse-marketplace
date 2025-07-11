@@ -47,7 +47,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
     "cookies": "^0.9.1",
-    "date-fns": "4.1.0",
+    "date-fns": "^3.0.0",
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.2",
     "embla-carousel-react": "8.5.1",
