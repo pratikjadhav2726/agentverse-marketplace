@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { User, Settings, LogOut, ShoppingCart, Store, Shield, Sun, Moon, Monitor, Users } from "lucide-react"
 import { useTheme } from "next-themes"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useState, useEffect } from "react"
 
 export function Navbar() {
   const { user, logout } = useAuth()
@@ -133,6 +134,20 @@ export function Navbar() {
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  // useEffect only runs on the client, so now we can safely show the UI
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    // Return a placeholder that matches the button size
+    return (
+      <div className="rounded-full p-2 h-9 w-9" />
+    )
+  }
+
   const isDark = theme === "dark"
   return (
     <button
