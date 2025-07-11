@@ -6,7 +6,7 @@ const activeExecutions = new Map<string, WorkflowExecution>()
 
 class WorkflowEngine {
   async executeWorkflow(workflowId: string, inputs: Record<string, any>): Promise<string> {
-    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // TODO: Replace db usage with SQLite integration if workflows are stored in DB
     // const workflow = db.workflows.find((w) => w.id === workflowId)
     // if (!workflow) {
     //   throw new Error("Workflow not found")
@@ -185,7 +185,7 @@ class WorkflowEngine {
   }
 
   saveWorkflow(workflow: Workflow) {
-    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // TODO: Replace db usage with SQLite integration if workflows are stored in DB
     // if (db.workflows.find((w) => w.id === workflow.id)) {
     //   db.workflows.update(workflow.id, workflow)
     // } else {
@@ -196,13 +196,13 @@ class WorkflowEngine {
   }
 
   getWorkflow(workflowId: string): Workflow | undefined {
-    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // TODO: Replace db usage with SQLite integration if workflows are stored in DB
     // return db.workflows.find((w) => w.id === workflowId)
     return undefined // Mocking
   }
 
   getUserWorkflows(userId: string): Workflow[] {
-    // TODO: Replace db usage with Supabase integration if workflows are stored in DB
+    // TODO: Replace db usage with SQLite integration if workflows are stored in DB
     // return db.workflows.findForUser(userId)
     return [] // Mocking
   }

@@ -5,7 +5,7 @@ import { headers } from "next/headers"
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
-// TODO: Refactor all db usage in webhook handlers to use Supabase
+// TODO: Refactor all db usage in webhook handlers to use SQLite
 
 export async function POST(request: NextRequest) {
   const body = await request.text()

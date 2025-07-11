@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth"
-import { supabase } from "@/lib/supabase"
+import { sqlite } from "@/lib/database"
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const user = await getUserFromRequest(req)
@@ -19,18 +19,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   // In a real app, you should verify that the user has purchased this agent
   // before allowing them to leave a review. We'll skip that for now.
 
-  // Insert review into Supabase
-  const { data: newReview, error } = await supabase.from('reviews').insert([
-    {
-      user_id: user.id,
-      agent_id: agentId,
-      rating,
-      comment,
-    }
-  ]).select().single();
-  if (error || !newReview) {
-    return NextResponse.json({ error: error?.message || "Failed to create review" }, { status: 500 })
-  }
+  try {
+    // Insert review into SQLite
+    const reviewId = crypto.randomUUID();
+    sqlite.prepare(`
+      INSERT INTO reviews (id, user_id, agent_id, rating, comment, created_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(reviewId, user.id, agentId, rating, comment);
 
-  return NextResponse.json(newReview, { status: 201 })
+    const newReview = sqlite.prepare('SELECT * FROM reviews WHERE id = ?').get(reviewId);
+    
+    if (!newReview) {
+      return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
+    }
+
+    return NextResponse.json(newReview, { status: 201 })
+  } catch (error) {
+    console.error('Error creating review:', error);
+    return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
+  }
 } 

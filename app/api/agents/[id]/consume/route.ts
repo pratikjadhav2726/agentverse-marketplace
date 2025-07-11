@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { sqlite } from "@/lib/database";
 
 const COMMISSION_RATE = 0.2; // 20%
 
@@ -7,103 +7,72 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const { userId } = await request.json();
   const agentId = params.id;
 
-  // 1. Fetch agent and seller
-  const { data: agent, error: agentError } = await supabase
-    .from('agents')
-    .select('*')
-    .eq('id', agentId)
-    .single();
-  if (agentError || !agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  try {
+    // 1. Fetch agent and seller
+    const agent = sqlite.prepare('SELECT * FROM agents WHERE id = ?').get(agentId) as any;
+    if (!agent) return NextResponse.json({ error: "Agent not found" }, { status: 404 });
 
-  const price = agent.price_per_use_credits;
-  const sellerId = agent.owner_id;
-  const commission = Math.floor(price * COMMISSION_RATE);
-  const sellerAmount = price - commission;
+    const price = agent.price_per_use_credits;
+    const sellerId = agent.owner_id;
+    const commission = Math.floor(price * COMMISSION_RATE);
+    const sellerAmount = price - commission;
 
-  // 2. Fetch user wallet
-  const { data: userWallet, error: userWalletError } = await supabase
-    .from('wallets')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
-  if (userWalletError || !userWallet || userWallet.balance < price)
-    return NextResponse.json({ error: "Insufficient credits" }, { status: 400 });
-
-  // 3. Debit user, credit seller, credit admin (commission)
-  const { error: debitError } = await supabase
-    .from('wallets')
-    .update({ balance: userWallet.balance - price })
-    .eq('user_id', userId);
-  if (debitError) return NextResponse.json({ error: debitError.message }, { status: 500 });
-
-  // Credit seller
-  const { data: sellerWallet, error: sellerWalletError } = await supabase
-    .from('wallets')
-    .select('*')
-    .eq('user_id', sellerId)
-    .single();
-  if (sellerWalletError || !sellerWallet)
-    return NextResponse.json({ error: "Seller wallet not found" }, { status: 500 });
-
-  const { error: creditError } = await supabase
-    .from('wallets')
-    .update({ balance: sellerWallet.balance + sellerAmount })
-    .eq('user_id', sellerId);
-  if (creditError) return NextResponse.json({ error: creditError.message }, { status: 500 });
-
-  // Credit admin (commission)
-  // Fetch admin user
-  const { data: adminUser, error: adminUserError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('role', 'admin')
-    .single();
-  if (adminUserError || !adminUser) {
-    return NextResponse.json({ error: "Admin user not found" }, { status: 500 });
-  }
-  const adminId = adminUser.id;
-  // Fetch admin wallet
-  const { data: adminWallet, error: adminWalletError } = await supabase
-    .from('wallets')
-    .select('*')
-    .eq('user_id', adminId)
-    .single();
-  if (adminWalletError || !adminWallet) {
-    return NextResponse.json({ error: "Admin wallet not found" }, { status: 500 });
-  }
-  const { error: adminCreditError } = await supabase
-    .from('wallets')
-    .update({ balance: adminWallet.balance + commission })
-    .eq('user_id', adminId);
-  if (adminCreditError) return NextResponse.json({ error: adminCreditError.message }, { status: 500 });
-
-  // Log transactions
-  await supabase.from('credit_transactions').insert([
-    {
-      from_user_id: userId,
-      to_user_id: sellerId,
-      agent_id: agentId,
-      amount: -price,
-      type: 'use',
-      metadata: {},
-    },
-    {
-      from_user_id: userId,
-      to_user_id: adminId,
-      agent_id: agentId,
-      amount: commission,
-      type: 'commission',
-      metadata: {},
-    },
-    {
-      from_user_id: userId,
-      to_user_id: sellerId,
-      agent_id: agentId,
-      amount: sellerAmount,
-      type: 'use',
-      metadata: {},
+    // 2. Fetch user wallet
+    const userWallet = sqlite.prepare('SELECT * FROM wallets WHERE user_id = ?').get(userId) as any;
+    if (!userWallet || userWallet.balance < price) {
+      return NextResponse.json({ error: "Insufficient credits" }, { status: 400 });
     }
-  ]);
 
-  return NextResponse.json({ success: true });
+    // 3. Debit user
+    sqlite.prepare('UPDATE wallets SET balance = balance - ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?').run(price, userId);
+
+    // 4. Credit seller
+    const sellerWallet = sqlite.prepare('SELECT * FROM wallets WHERE user_id = ?').get(sellerId) as any;
+    if (!sellerWallet) {
+      return NextResponse.json({ error: "Seller wallet not found" }, { status: 500 });
+    }
+
+    sqlite.prepare('UPDATE wallets SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?').run(sellerAmount, sellerId);
+
+    // 5. Credit admin (commission)
+    // Fetch admin user
+    const adminUser = sqlite.prepare('SELECT id FROM users WHERE role = ?').get('admin') as any;
+    if (!adminUser) {
+      return NextResponse.json({ error: "Admin user not found" }, { status: 500 });
+    }
+    const adminId = adminUser.id;
+
+    // Fetch admin wallet
+    const adminWallet = sqlite.prepare('SELECT * FROM wallets WHERE user_id = ?').get(adminId) as any;
+    if (!adminWallet) {
+      return NextResponse.json({ error: "Admin wallet not found" }, { status: 500 });
+    }
+
+    sqlite.prepare('UPDATE wallets SET balance = balance + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?').run(commission, adminId);
+
+    // 6. Log transactions
+    const transactionId1 = crypto.randomUUID();
+    const transactionId2 = crypto.randomUUID();
+    const transactionId3 = crypto.randomUUID();
+
+    sqlite.prepare(`
+      INSERT INTO credit_transactions (id, from_user_id, to_user_id, agent_id, amount, type, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(transactionId1, userId, sellerId, agentId, -price, 'use', JSON.stringify({}));
+
+    sqlite.prepare(`
+      INSERT INTO credit_transactions (id, from_user_id, to_user_id, agent_id, amount, type, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(transactionId2, userId, adminId, agentId, commission, 'commission', JSON.stringify({}));
+
+    sqlite.prepare(`
+      INSERT INTO credit_transactions (id, from_user_id, to_user_id, agent_id, amount, type, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(transactionId3, userId, sellerId, agentId, sellerAmount, 'use', JSON.stringify({}));
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error processing agent consumption:', error);
+    return NextResponse.json({ error: "Failed to process consumption" }, { status: 500 });
+  }
 } 

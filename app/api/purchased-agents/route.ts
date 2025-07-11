@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getUserFromRequest } from "@/lib/auth"
-import { supabase } from "@/lib/supabase"
+import { sqlite } from "@/lib/database"
 
 export async function GET(req: NextRequest) {
   const user = await getUserFromRequest(req)
@@ -10,20 +10,19 @@ export async function GET(req: NextRequest) {
 
   try {
     // Fetch purchases for the user
-    const { data: purchases, error: purchasesError } = await supabase
-      .from('purchases')
-      .select('agent_id')
-      .eq('user_id', user.id)
-    if (purchasesError) throw purchasesError;
-    const agentIds = purchases.map((p: any) => p.agent_id)
-    if (agentIds.length === 0) return NextResponse.json([])
-    // Fetch agents by IDs
-    const { data: agents, error: agentsError } = await supabase
-      .from('agents')
-      .select('*')
-      .in('id', agentIds)
-    if (agentsError) throw agentsError;
-    return NextResponse.json(agents)
+    const purchases = sqlite.prepare('SELECT agent_id FROM purchases WHERE user_id = ?').all(user.id) as { agent_id: string }[];
+    
+    if (purchases.length === 0) {
+      return NextResponse.json([]);
+    }
+    
+    const agentIds = purchases.map(p => p.agent_id);
+    
+    // Fetch agents by IDs using IN clause
+    const placeholders = agentIds.map(() => '?').join(',');
+    const agents = sqlite.prepare(`SELECT * FROM agents WHERE id IN (${placeholders})`).all(...agentIds);
+    
+    return NextResponse.json(agents);
   } catch (error) {
     console.error("Failed to fetch purchased agents:", error)
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 })

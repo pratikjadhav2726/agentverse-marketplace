@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   // const sellerAgents = allAgents.filter((agent) => agent.sellerId === user.id)
 
   // return NextResponse.json(sellerAgents)
-  return NextResponse.json({ message: "GET endpoint is not yet implemented with Supabase" }, { status: 501 })
+  return NextResponse.json({ message: "GET endpoint is not yet implemented with SQLite" }, { status: 501 })
 }
 
 export async function POST(req: NextRequest) {

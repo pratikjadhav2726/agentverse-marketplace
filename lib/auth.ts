@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { sqlite } from "@/lib/database"
 import type { User } from "./types"
 import { verifyJwt } from "@/lib/utils"
 
@@ -15,10 +15,10 @@ export async function getUserFromRequest(req: NextRequest): Promise<User | null>
     return null
   }
   const token = authHeader.slice(7)
-  const payload = verifyJwt(token)
+  const payload = await verifyJwt(token)
   if (!payload || !payload.id) {
     return null
   }
-  const { data: user, error } = await supabase.from('users').select('*').eq('id', payload.id).single();
+  const user = sqlite.prepare('SELECT * FROM users WHERE id = ?').get(payload.id) as User | undefined;
   return user || null
 } 
