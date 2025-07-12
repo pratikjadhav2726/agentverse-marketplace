@@ -1,319 +1,335 @@
-"use client"
+// If you haven't already, install react-icons: npm install react-icons
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/lib/auth-context"
-import { useRouter } from "next/navigation"
-import { WorkflowBuilder } from "@/components/workflow/workflow-builder"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Play, Clock, CheckCircle, XCircle, Bot } from "lucide-react"
-import type { PurchasedAgent, Workflow } from "@/lib/workflow-types"
-import Link from "next/link"
-import { ReactFlowProvider } from "reactflow"
+"use client";
 
-export default function WorkflowsPage() {
-  const { user, loading } = useAuth()
-  const router = useRouter()
-  const [workflows, setWorkflows] = useState<Workflow[]>([])
-  const [purchasedAgents, setPurchasedAgents] = useState<PurchasedAgent[]>([])
-  const [activeTab, setActiveTab] = useState("builder")
-  const [workflowToLoad, setWorkflowToLoad] = useState<Workflow | null>(null)
+import React, { useCallback, useState } from "react";
+import ReactFlow, {
+  Background,
+  Controls,
+  addEdge,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  Panel,
+  Node,
+  Edge,
+  Connection,
+  ReactFlowProvider,
+} from "reactflow";
+import "reactflow/dist/style.css";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
+import { FiSave, FiPlay, FiDownload, FiUpload, FiMaximize2, FiRefreshCw, FiKey } from "react-icons/fi";
+import AgentNode from "@/components/workflow/AgentNode";
+import NodeDetailsPanel from "@/components/workflow/NodeDetailsPanel";
+import CredentialDashboard from "@/components/workflow/CredentialDashboard";
+import CredentialMappingWizard from "@/components/workflow/CredentialMappingWizard";
+import { Agent, Credential, NodeData } from "@/components/workflow/types";
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/signin")
-    }
-  }, [user, loading, router])
+// --- Mock Data ---
+const AGENT_LIBRARY: Agent[] = [
+  {
+    id: "agent-1",
+    name: "Data Collector",
+    description: "Collects data from APIs",
+    skills: ["fetch", "parse", "schedule"],
+    endpoint: "https://api.example.com/agent-1",
+    documentationUrl: "https://docs.example.com/agent-1",
+    llms: ["OpenAI", "Anthropic", "Gemini"],
+    tools: [
+      { id: "openai", name: "OpenAI", type: "llm", credentialType: "api_key" },
+      { id: "google_sheets", name: "Google Sheets", type: "tool", credentialType: "oauth" },
+    ],
+  },
+  {
+    id: "agent-2",
+    name: "Analyzer",
+    description: "Analyzes data using LLMs",
+    skills: ["analyze", "summarize"],
+    endpoint: "https://api.example.com/agent-2",
+    documentationUrl: "https://docs.example.com/agent-2",
+    llms: ["OpenAI", "Gemini"],
+    tools: [
+      { id: "openai", name: "OpenAI", type: "llm", credentialType: "api_key" },
+    ],
+  },
+];
 
-  useEffect(() => {
-    if (user) {
-      loadWorkflows()
-      loadPurchasedAgents()
-    }
-  }, [user])
+const MOCK_CREDENTIALS: Credential[] = [
+  { id: "cred-1", type: "api_key", provider: "OpenAI", label: "My OpenAI Key" },
+  { id: "cred-2", type: "api_key", provider: "Anthropic", label: "Anthropic Key" },
+  { id: "cred-3", type: "oauth", provider: "Google Sheets", label: "Google Sheets OAuth" },
+];
 
-  const loadWorkflows = async () => {
-    try {
-      const response = await fetch(`/api/workflows?userId=${user?.id}`)
-      if (response.ok) {
-        const { workflows } = await response.json()
-        setWorkflows(workflows)
-      }
-    } catch (error) {
-      console.error("Failed to load workflows:", error)
-    }
+export default function WorkflowBuilderPage() {
+  // Workflow state
+  const [nodes, setNodes, onNodesChange] = useNodesState<NodeData>([
+    {
+      id: "1",
+      type: "agent",
+      position: { x: 250, y: 100 },
+      data: {
+        agentId: "agent-1",
+        agentName: "Data Collector",
+        llms: ["OpenAI", "Anthropic", "Gemini"],
+        tools: AGENT_LIBRARY[0].tools,
+        currentLLM: "OpenAI",
+        credentials: { openai: "cred-1", google_sheets: "cred-3" },
+        onClick: () => handleNodeClick("1"),
+      },
+    },
+  ]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  const [agentSearch, setAgentSearch] = useState<string>("");
+  const [workflowName, setWorkflowName] = useState<string>("Untitled Workflow");
+
+  // Credential state
+  const [credentials, setCredentials] = useState<Credential[]>(MOCK_CREDENTIALS);
+  const addCredential = (cred: Credential) => setCredentials((prev) => [...prev, cred]);
+  const editCredential = (id: string, update: Partial<Credential>) =>
+    setCredentials((prev) => prev.map((c) => (c.id === id ? { ...c, ...update } : c)));
+  const deleteCredential = (id: string) => setCredentials((prev) => prev.filter((c) => c.id !== id));
+
+  // Modals
+  const [credDashboardOpen, setCredDashboardOpen] = useState(false);
+  const [credMappingOpen, setCredMappingOpen] = useState(false);
+
+  // Add agent node from library
+  const handleAddAgent = (agent: Agent) => {
+    const id = (nodes.length + 1).toString();
+    setNodes((nds) => [
+      ...nds,
+      {
+        id,
+        type: "agent",
+        position: { x: 100 + nds.length * 60, y: 200 },
+        data: {
+          agentId: agent.id,
+          agentName: agent.name,
+          llms: agent.llms,
+          tools: agent.tools,
+          currentLLM: agent.llms[0],
+          credentials: Object.fromEntries(agent.tools.map((t) => [t.id, ""])),
+          onClick: () => handleNodeClick(id),
+        },
+      },
+    ]);
+    toast.success(`Added agent: ${agent.name}`);
+  };
+
+  // Node click handler
+  function handleNodeClick(id: string) {
+    setSelectedNodeId(id);
+    setSettingsOpen(true);
   }
 
-  const loadPurchasedAgents = async () => {
-    if (!user) return
-    try {
-      const response = await fetch(`/api/purchased-agents?userId=${user.id}`)
-      if (response.ok) {
-        const { purchasedAgents } = await response.json()
-        setPurchasedAgents(purchasedAgents)
-      }
-    } catch (error) {
-      console.error("Failed to load purchased agents:", error)
-    }
+  // LLM swap handler
+  function handleLLMSwap(nodeId: string, llm: string) {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, currentLLM: llm } } : n
+      )
+    );
+    toast.success(`LLM swapped to ${llm}`);
   }
 
-  const handleSaveWorkflow = (workflow: Workflow) => {
-    setWorkflows((prev) => {
-      const existing = prev.find((w) => w.id === workflow.id)
-      if (existing) {
-        return prev.map((w) => (w.id === workflow.id ? workflow : w))
-      }
-      return [...prev, workflow]
-    })
+  // Credential change handler
+  function handleCredentialChange(nodeId: string, toolId: string, credId: string) {
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === nodeId
+          ? { ...n, data: { ...n.data, credentials: { ...n.data.credentials, [toolId]: credId } } }
+          : n
+      )
+    );
+    toast.success(`Credential updated.`);
   }
 
-  const handleEditWorkflow = (workflow: Workflow) => {
-    setWorkflowToLoad(workflow)
-    setActiveTab("builder")
-  }
+  // Add edge handler
+  const onConnect = useCallback((params: Edge | Connection) => setEdges((eds) => addEdge(params, eds)), [setEdges]);
 
-  const handleRunWorkflow = async (workflow: Workflow) => {
-    // Set the status to running immediately for better UX
-    setWorkflows((prev) => prev.map((w) => (w.id === workflow.id ? { ...w, status: "running" } : w)))
+  // NodeTypes for ReactFlow
+  const nodeTypes = { agent: AgentNode };
 
-    try {
-      const response = await fetch(`/api/workflows/${workflow.id}/execute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workflow, inputs: {} }), // Passing empty inputs for now
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+  const selectedAgent = selectedNode ? AGENT_LIBRARY.find((a) => a.id === selectedNode.data.agentId) : undefined;
+
+  // Filtered agent library
+  const filteredAgents = agentSearch
+    ? AGENT_LIBRARY.filter((a) =>
+        a.name.toLowerCase().includes(agentSearch.toLowerCase()) ||
+        a.description.toLowerCase().includes(agentSearch.toLowerCase())
+      )
+    : AGENT_LIBRARY;
+
+  // Canvas fit/center
+  const handleFitView = () => {
+    const rf = document.querySelector(".react-flow__viewport") as HTMLElement;
+    if (rf) rf.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  // Workflow actions (mock)
+  const handleSave = () => toast.success("Workflow saved (mock)");
+  const handleRun = () => toast("Workflow run (mock)");
+  const handleExport = () => toast("Exported workflow (mock)");
+  const handleImport = () => setCredMappingOpen(true);
+  const handleReset = () => window.location.reload();
+
+  // Credential mapping wizard callback
+  function handleCredentialMap(mapping: Record<string, string>) {
+    // For demo, just show a toast and update all node credentials
+    setNodes((nds) =>
+      nds.map((n) => {
+        const newCreds = { ...n.data.credentials };
+        Object.entries(mapping).forEach(([k, v]) => {
+          // k = agentId+toolId
+          const toolId = k.replace(n.data.agentId, "");
+          if (toolId in newCreds) newCreds[toolId] = v;
+        });
+        return { ...n, data: { ...n.data, credentials: newCreds } };
       })
-
-      if (!response.ok) {
-        throw new Error("Failed to start workflow execution")
-      }
-
-      const { executionId } = await response.json()
-
-      // Poll for results
-      const poll = setInterval(async () => {
-        const statusRes = await fetch(`/api/workflows/${workflow.id}/execute?executionId=${executionId}`)
-        if (statusRes.ok) {
-          const result = await statusRes.json()
-          if (result.status === "completed" || result.status === "failed") {
-            clearInterval(poll)
-            setWorkflows((prev) => prev.map((w) => (w.id === workflow.id ? { ...w, status: result.status } : w)))
-          }
-        }
-      }, 2000)
-    } catch (error) {
-      console.error("Error running workflow:", error)
-      // Revert status on failure
-      setWorkflows((prev) => prev.map((w) => (w.id === workflow.id ? { ...w, status: "idle" } : w)))
-    }
+    );
+    toast.success("Credential mapping applied");
   }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case "failed":
-        return <XCircle className="h-4 w-4 text-red-500" />
-      case "running":
-        return <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />
-    }
-  }
-
-  const getStatusVariant = (status: string) => {
-    switch (status) {
-      case "active":
-        return "default"
-      case "completed":
-        return "secondary"
-      case "failed":
-        return "destructive"
-      default:
-        return "outline"
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user) return null
 
   return (
-    <div className="container mx-auto px-4 py-8 h-screen">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">AI Agent Workflows</h1>
-        <p className="text-muted-foreground">
-          Create and manage complex workflows by connecting your purchased AI agents
-        </p>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="builder">Workflow Builder</TabsTrigger>
-          <TabsTrigger value="workflows">My Workflows ({workflows.length})</TabsTrigger>
-          <TabsTrigger value="agents">Owned Agents ({purchasedAgents.length})</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="builder" className="h-full mt-6">
-          <div className="h-[calc(100vh-200px)] border rounded-lg overflow-hidden">
-            <ReactFlowProvider>
-              <WorkflowBuilder
-                userId={user.id}
-                purchasedAgents={purchasedAgents}
-                onSave={handleSaveWorkflow}
-                workflowToLoad={workflowToLoad}
-                clearWorkflowToLoad={() => setWorkflowToLoad(null)}
+    <TooltipProvider>
+      <Toaster position="top-right" richColors />
+      <div className="flex flex-col h-screen w-full">
+        {/* Header */}
+        <header className="flex items-center justify-between px-6 py-3 border-b bg-background/80 backdrop-blur z-10">
+          <div className="flex items-center gap-3">
+            <Input
+              className="text-xl font-bold w-64"
+              value={workflowName}
+              onChange={(e) => setWorkflowName(e.target.value)}
+              aria-label="Workflow name"
+            />
+            <span className="text-muted-foreground text-xs ml-2">Visual Workflow Builder</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label="Save" onClick={handleSave}><FiSave /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Save</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label="Run" onClick={handleRun}><FiPlay /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Run</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label="Export" onClick={handleExport}><FiDownload /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Export</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label="Import" onClick={handleImport}><FiUpload /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Import</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label="Credentials" onClick={() => setCredDashboardOpen(true)}><FiKey /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Credential Dashboard</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label="Center Canvas" onClick={handleFitView}><FiMaximize2 /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Center Canvas</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" aria-label="Reset" onClick={handleReset}><FiRefreshCw /></Button>
+              </TooltipTrigger>
+              <TooltipContent>Reset</TooltipContent>
+            </Tooltip>
+          </div>
+        </header>
+        <div className="flex flex-1 min-h-0">
+          {/* Sidebar: Agent Library */}
+          <aside className="w-72 border-r p-4 bg-muted/50 flex flex-col gap-4">
+            <div>
+              <Input
+                placeholder="Search agents..."
+                value={agentSearch}
+                onChange={(e) => setAgentSearch(e.target.value)}
+                aria-label="Search agents"
+                className="mb-3"
               />
-            </ReactFlowProvider>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="workflows" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {workflows.map((workflow) => (
-              <Card key={workflow.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{workflow.name}</CardTitle>
-                      <CardDescription className="mt-1">{workflow.description}</CardDescription>
-                    </div>
-                    <Badge variant={getStatusVariant(workflow.status)}>{workflow.status}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Nodes:</span>
-                      <span>{workflow.nodes.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Connections:</span>
-                      <span>{workflow.edges.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Last Updated:</span>
-                      <span>{new Date(workflow.updatedAt).toLocaleDateString()}</span>
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => handleRunWorkflow(workflow)}
-                        disabled={workflow.status === "running"}
-                      >
-                        {workflow.status === "running" ? (
-                          <div className="h-3 w-3 mr-1 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        ) : (
-                          <Play className="h-3 w-3 mr-1" />
-                        )}
-                        Run
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => handleEditWorkflow(workflow)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {workflows.length === 0 && (
-              <div className="col-span-full text-center py-12">
-                <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                <h3 className="text-lg font-semibold mb-2">No workflows yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create your first workflow to start automating tasks with AI agents
-                </p>
-                <Button onClick={() => setActiveTab("builder")} asChild>
-                  <Link href="/workflows?tab=builder">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Workflow
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="agents" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {purchasedAgents.map((purchasedAgent) => (
-              <Card key={purchasedAgent.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg flex items-center">
-                        <Bot className="h-5 w-5 mr-2" />
-                        {purchasedAgent.agent.name}
-                      </CardTitle>
-                      <CardDescription className="mt-1">{purchasedAgent.agent.description}</CardDescription>
-                    </div>
-                    <Badge variant={purchasedAgent.status === "active" ? "default" : "secondary"}>
-                      {purchasedAgent.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Capabilities</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {purchasedAgent.agent.capabilities.map((capability, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {capability}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="text-sm text-muted-foreground">
-                      Purchased: {new Date(purchasedAgent.purchaseDate).toLocaleDateString()}
-                    </div>
-
-                    <Button size="sm" variant="outline" className="w-full">
-                      View Details
+              <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-180px)] pr-1">
+                {filteredAgents.length === 0 && (
+                  <div className="text-xs text-muted-foreground">No agents found.</div>
+                )}
+                {filteredAgents.map((agent) => (
+                  <div key={agent.id} className="p-3 flex flex-col gap-1 border border-primary/30 rounded bg-background">
+                    <div className="font-semibold text-primary mb-1">{agent.name}</div>
+                    <div className="text-xs text-muted-foreground mb-1">{agent.description}</div>
+                    <Button size="sm" variant="secondary" onClick={() => handleAddAgent(agent)}>
+                      Add to Canvas
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {purchasedAgents.length === 0 && (
-              <div className="col-span-full text-center py-12">
-                <Bot className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                <h3 className="text-lg font-semibold mb-2">No agents purchased</h3>
-                <p className="text-muted-foreground mb-4">
-                  Purchase agents from the marketplace to use in your workflows
-                </p>
-                <Button asChild>
-                  <Link href="/marketplace">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Browse Marketplace
-                  </Link>
-                </Button>
+                ))}
               </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
-}
+            </div>
+          </aside>
+          {/* Main: Workflow Canvas */}
+          <main className="flex-1 relative bg-background">
+            <ReactFlowProvider>
+              <ReactFlow
+                nodes={nodes.map((n) => ({ ...n, data: { ...n.data, onClick: () => handleNodeClick(n.id) } }))}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                fitView
+                className="h-full"
+              >
+                <Background />
+                <MiniMap />
+                <Controls />
+                <Panel position="top-right"><div /></Panel>
+              </ReactFlow>
+            </ReactFlowProvider>
+            <NodeDetailsPanel
+              node={selectedNode}
+              agent={selectedAgent}
+              credentials={credentials}
+              open={settingsOpen}
+              onOpenChange={setSettingsOpen}
+              onLLMSwap={handleLLMSwap}
+              onCredentialChange={handleCredentialChange}
+            />
+            <CredentialDashboard
+              open={credDashboardOpen}
+              onOpenChange={setCredDashboardOpen}
+              credentials={credentials}
+              addCredential={addCredential}
+              editCredential={editCredential}
+              deleteCredential={deleteCredential}
+            />
+            <CredentialMappingWizard
+              open={credMappingOpen}
+              onOpenChange={setCredMappingOpen}
+              nodes={nodes.map((n) => n.data)}
+              credentials={credentials}
+              onMap={handleCredentialMap}
+            />
+          </main>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+} 
