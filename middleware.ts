@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyJwt } from "./lib/utils";
 import { cookies } from "next/headers";
+import { apiMiddleware } from "./lib/api-middleware";
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -13,6 +14,11 @@ const PROTECTED_PATHS = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith('/api')) {
+    return apiMiddleware(request);
+  }
+
   const isProtected = PROTECTED_PATHS.some((path) => pathname === path || pathname.startsWith(path + "/"));
   if (!isProtected) return NextResponse.next();
 
@@ -30,6 +36,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api/:path*",
     "/dashboard/:path*",
     "/admin/:path*",
     "/settings/:path*",
