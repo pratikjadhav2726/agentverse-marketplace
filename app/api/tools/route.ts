@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sqlite } from '../../../lib/database';
+import { mcpService } from '../../../lib/mcp-service';
 import { MCPTool, MCPToolWithUsage } from '../../../lib/schema';
 
 export async function GET(request: NextRequest) {
