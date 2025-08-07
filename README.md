@@ -116,3 +116,113 @@ For more details, see [MCP_TOOLS_GUIDE.md](./MCP_TOOLS_GUIDE.md) and [MARKETPLAC
 ---
 
 AgentVerse transforms the traditional marketplace model into a unified platform for the entire AI agent lifecycle, fostering a collaborative and innovative ecosystem for agent developers, buyers, and enterprises.
+
+## A2A + MCP Implementation Plan (Turning the marketplace into a "company of agents")
+
+### Goals
+- Interoperate agents from any vendor via A2A (agent-to-agent collaboration)
+- Safely access user data/tools via MCP (agent-to-tool access)
+- Support long-running tasks, streaming updates, shared memory, billing, and governance
+
+### What’s already built (leveraged in the plan)
+- UI/UX: Marketplace, seller dashboards, workflows, agent playground
+- DB and credit system: Wallets, transactions, payouts, reviews (SQLite/Drizzle; Supabase schema provided)
+- Payments: Stripe integration and credit purchase flows
+- AuthZ/AuthN: Cookie-JWT sessions; roles (admin, seller, buyer)
+- MCP tools + secure credentials: Tool registry, agent-tool linking, encrypted user credentials, gateway invoke API (see `MCP_TOOLS_GUIDE.md`)
+- Workflow skeleton: Executions and logs (`lib/workflow-engine.ts`) to evolve into orchestrator
+
+### End-to-end architecture (high level)
+- A2A Gateway/Client: Standardizes agent-to-agent calls (HTTP+JSON, Tasks, SSE, webhooks)
+- Agent Registry + Agent Cards: Capability discovery and selection at runtime
+- Orchestrator: Decomposes goals, delegates sub-tasks to agents, aggregates results
+- Pub/Sub backbone: Real-time collaboration and decoupled events (dev: Redis/Dapr; prod: Kafka/EventBridge)
+- Task queue: Durable long-running jobs and retries (dev: BullMQ/Redis; prod: Temporal/queues)
+- MCP multi-tenant service: Per-user private tool workspace with policies and HITL
+- Shared memory: Knowledge graph/vector store for cross-agent context
+- AI Gateway: Token metering, routing, rate limits, guardrails, audit
+
+### Phased implementation
+1) A2A Core (MVP)
+- Agent Cards (stored per agent): endpoint, skills, modalities, auth, streaming/webhook support
+- A2A Client library: request/response, `Task` lifecycle, polling via `tasks/get`, SSE stream, webhook handling
+- Seller onboarding: Card validation + health check; playground “ping” and sample call
+- Buyer usage: Resolve Agent Card, send message/task, show progress and result; debit credits per use
+
+2) Orchestrator & Workflows
+- Extend `workflow-engine` to support agent nodes that call via A2A
+- Add “orchestrator” agent type to plan, parallelize, and aggregate outputs
+- Persist “run” entities with status, logs, artifacts; show in UI with step-by-step traces
+
+3) Async + Streaming
+- SSE for incremental updates (agent messages/artifact parts)
+- Webhooks for very long runs; retry and dead-letter policies
+- UI live run view (streams) and resume on reconnect
+
+4) Pub/Sub Collaboration
+- Introduce event topics: task.created, task.progress, task.completed, artifact.ready, alert.*
+- Agents publish/subscribe for decoupled handoffs (blackboard pattern)
+- Use Redis Streams/Dapr in dev; abstract for Kafka/EventBridge in prod
+
+5) Task Queue & Reliability
+- Add BullMQ (dev) for job queuing and worker pools; idempotency keys and checkpoints
+- Progressive enhancement to Temporal for durable executions and retries
+
+6) MCP Multi-tenant
+- Logical per-user workspaces; per-agent identities within user context
+- Policy layer (least-privilege, allowlists, scoped credentials), HITL approvals for sensitive tools
+- Route agent tool calls through MCP gateway; log usage and charge credits
+
+7) AI Gateway, Billing, and Guardrails
+- Token metering and per-agent/per-user rate limits
+- Output filters and prompt-injection defenses
+- OpenTelemetry traces for A2A/MCP calls; map usage to credits and seller payouts
+
+8) Shared Memory
+- Start with Postgres + pgvector for embeddings; optional Neo4j for relations
+- Store artifacts, links, and task graphs for retrieval-augmented collaboration
+
+### Milestones (indicative)
+- Week 1–2: A2A MVP (cards, client, seller onboarding, basic runs)
+- Week 3–4: Orchestrator in workflows; SSE streaming; credits for runs
+- Week 5–6: Pub/Sub + queue; long-running reliability; UI live runs
+- Week 7–8: MCP multi-tenant + policies + HITL; gateway usage metering
+- Week 9+: AI gateway, observability, shared memory, enterprise hardening
+
+### Security & governance checklist
+- OIDC/JWT identities for users and agents; mTLS between marketplace and hosted agents
+- Fine-grained RBAC for tools; per-user data isolation in MCP
+- Full audit logs (A2A messages, MCP invokes, credit charges); export for compliance
+- Abuse and cost controls: quotas, spend limits, and anomaly detection
+
+---
+
+## Alternative architecture plans
+
+### Plan A — Lean A2A-first (fastest path to value)
+- Focus: Interop and monetization now; defer event backbone and advanced memory
+- Build: Agent Cards + A2A client + seller onboarding + SSE + polling; simple orchestrator
+- Queue: Minimal (BullMQ) for long tasks; no external broker initially
+- Pros: Quick to ship; low ops complexity. Cons: Less decoupling; limited scale-up story
+
+### Plan B — Event-driven “team of agents”
+- Focus: Pub/Sub collaboration + orchestrator-worker pattern from the start
+- Build: Dapr/Kafka topics, typed events, orchestrator that reacts to events; queue + SSE/webhooks
+- Memory: Introduce knowledge graph sooner for cross-agent context
+- Pros: Scales and composes well; resilient. Cons: Higher infra and operational load
+
+### Plan C — Enterprise governance first
+- Focus: Multi-tenant MCP gateway, policy engine, HITL, AI gateway metering and guardrails
+- Build: Strong identity, authorization, audit, and billing before broad interop
+- Pros: Enterprise-ready (regulated industries). Cons: Longer time-to-first-utility
+
+---
+
+## Clear next steps (recommended)
+- Adopt Plan A for a 4–6 week MVP; keep interfaces broker-agnostic and queue-agnostic
+- Define Agent Card JSON schema and validation in seller flow; seed 2–3 reference agents
+- Implement A2A client with SSE + webhook support and run it through the workflow engine
+- Add minimal BullMQ for long tasks; stream progress to UI; debit credits and log usage
+- Draft MCP workspace boundary and per-agent identity; enforce allowlists on tool usage
+
+If you need deeper specs (schemas, APIs, or sequence diagrams), open an issue and we’ll add them to the docs and roadmap.
