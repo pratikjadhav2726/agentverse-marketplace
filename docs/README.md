@@ -21,3 +21,13 @@ Quick start
 - Read the high-level `A2A_MCP_IMPLEMENTATION_PLAN.md`
 - Implement 01 → 04 in order for MVP runs
 - Add 05 → 06 for scale and reliability; then 07 → 08 for enterprise controls
+
+---
+
+## How to use this docs suite
+- Start with `01` and ship onboarding + validation first
+- Implement `02` and `04` together (client + streaming/webhooks)
+- Extend workflows via `03`; then add `05` + `06` for scale
+- Secure data access via `07`; wrap with `08` for guardrails and metering
+- Add `09` for memory; wire `10` for billing; enforce `11`
+- Keep `12` updated; validate with `13`; operate with `14`

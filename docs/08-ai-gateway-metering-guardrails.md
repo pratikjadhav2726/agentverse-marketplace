@@ -19,3 +19,22 @@ Observability
 Integration
 - Gateway sits in front of orchestrator and MCP invoke path
 - All calls tagged with `correlationId` and `runId`
+
+---
+
+## Metering Methods
+- LLM usage header parsing (OpenAI-style, Bedrock-style); fallback estimate by tokens = tiktoken(model, input+output)
+- MCP call unit pricing per tool; surge pricing flags per vendor
+
+## Rate Limit Algorithms
+- Token bucket: rate r, burst b; implemented in Redis with LUA scripts
+- Sliding window log for enforcement and analytics
+
+## Guardrail Rules
+- Prompt injection patterns: deny lists, model-specific system prompts
+- PII: regex + ML detector; mask outputs; configurable redaction policy
+- Tool-specific guards: block domains, file types
+
+## Metrics & Alerts
+- Credits consumed per run/user/agent; error rate > 2% alert
+- Rate limit hits; blocked guardrail events; top tool spend

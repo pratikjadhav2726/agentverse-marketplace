@@ -16,3 +16,24 @@ Payouts
 Auditing
 - Link transactions to `runId`, `taskId`, `agentId`, `toolId`
 - Export CSV for finance
+
+---
+
+## Pricing Rules
+- Per-use base price from agent; add streaming surcharge if duration > threshold
+- MCP tool pricing table: per-call or per-1k tokens; minimum bill 1 credit
+
+## Rounding & Currency
+- Credits as integer; round up partials
+- Reconciliation job aggregates daily usage into statements
+
+## Disputes & Refunds
+- Buyer can dispute within 7 days; freeze payout; adjudicate via logs
+- Partial refunds create negative credit transactions
+
+## Payouts
+- Weekly batch; minimum threshold; fees deducted
+- Export statements CSV with tax fields (country, VAT ID)
+
+## Tax
+- Capture seller tax profiles; tax-exclusive credits; jurisdictional handling externalized

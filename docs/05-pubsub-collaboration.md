@@ -33,3 +33,22 @@ Tech
 Operations
 - Retention policies by topic
 - Dead-letter topics; consumer lag dashboards
+
+---
+
+## Versioning
+- Envelope `type` uses semantic version suffix: `agentverse.task.updated.v1`
+- Payload changes are backward-compatible; add fields only; use defaults
+
+## Partitioning & Keys
+- Kafka: key by `correlationId` to keep run ordering
+- Retention: 7 days for task.*; 30 days for billing.*; compaction for billing totals
+
+## Consumer patterns
+- Orchestrator: subscribe `artifact.created.*` → schedule dependent nodes
+- Billing: subscribe `billing.usage.*` → write transactions
+- Alerting: subscribe `alert.*` → page on error thresholds
+
+## Error Handling
+- Poison events → DLQ topic with original payload and error metadata
+- Replay by correlationId for incident investigations

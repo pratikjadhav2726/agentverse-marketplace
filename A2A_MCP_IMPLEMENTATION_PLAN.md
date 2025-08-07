@@ -318,3 +318,16 @@ Add columns to `agents`:
 - M3 (Weeks 5–6): Pub/Sub events + BullMQ queues; webhook delivery with retries; artifact persistence
 - M4 (Weeks 7–8): MCP multi-tenant policies + HITL; `mcp/invoke` proxy; billing for tool usage
 - M5 (Week 9+): AI Gateway (metering/guardrails), shared memory search, enterprise hardening and SLOs
+
+---
+
+## Cross-reference to deep docs
+See `docs/` for per-feature deep dives. Recommended build order: 01 → 02+04 → 03 → 06 → 05 → 07 → 08 → 10 → 09 → 11 → 12 → 13 → 14.
+
+## MVP Checklist
+- [ ] Agent Card schema + validation + probes
+- [ ] A2A client with JWT auth, SSE, webhooks
+- [ ] Orchestrator `agent` node invoking A2A
+- [ ] Streaming UI for run progress
+- [ ] Credit debits for runs; basic payouts update
+- [ ] Logging/metrics for A2A calls

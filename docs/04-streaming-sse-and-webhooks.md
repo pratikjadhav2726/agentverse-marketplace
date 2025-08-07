@@ -23,3 +23,42 @@ Retries
 Security
 - IP allowlisting (optional)
 - Size limits; gzip support; reject dangerous content types
+
+---
+
+## SSE Formatting
+- Content-Type: text/event-stream; charset=utf-8
+- Events:
+```
+event: task.status
+data: {"taskId":"t_1","status":"working","ts":1736293200}
+
+event: artifact.append
+data: {"taskId":"t_1","part":{"kind":"text","text":"partial..."}}
+```
+- Heartbeat: `:\n` every 15s
+
+## Webhook Signing
+- Compute: `sig = hex( HMAC_SHA256(secret, timestamp + "." + body) )`
+- Headers: `X-AV-Signature: t=TIMESTAMP,v1=SIG`
+- Verify: check |timestamp-now| <= 5m; recompute HMAC over raw body
+
+## Examples
+Request body (task.completed)
+```json
+{
+  "eventId": "evt_123",
+  "type": "task.completed",
+  "taskId": "t_1",
+  "artifact": {"parts":[{"kind":"text","text":"Done"}]}
+}
+```
+
+## Errors
+- 400 invalid_signature
+- 408 receiver_timeout
+- 5xx transient → retry with backoff
+
+## Rate Limits
+- Limit inbound webhooks per task to 5 QPS; burst 10
+- Reject bodies > 2 MB; compress with gzip supported

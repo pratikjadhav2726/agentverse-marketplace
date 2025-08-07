@@ -22,3 +22,24 @@ Schemas
 - Agent Card JSON Schema (see 01)
 - SSE event payloads (see 04)
 - Event envelope for pub/sub (see 05)
+
+---
+
+## OpenAPI
+- Maintain `/openapi.json`; versioned; generated from handlers via annotations
+
+## Error Envelope
+```json
+{
+  "error": {
+    "code": "E_TIMEOUT",
+    "message": "upstream timeout",
+    "traceId": "tr_123",
+    "details": {"endpoint": "https://..."}
+  }
+}
+```
+
+## Pagination & Filtering
+- Cursor-based pagination: `?cursor=c_abc&limit=50`
+- Filtering by `userId`, `agentId`, `status`, time ranges (ISO8601)
