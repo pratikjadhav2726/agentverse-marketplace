@@ -50,7 +50,7 @@ export function initializeDatabase() {
       )
     `);
 
-    // Create MCP tools table
+    // Create MCP tools table (enhanced)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS mcp_tools (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -62,11 +62,18 @@ export function initializeDatabase() {
         required_scopes TEXT,
         documentation_url TEXT,
         is_public BOOLEAN DEFAULT true,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        context_schema TEXT,
+        supports_streaming BOOLEAN DEFAULT false,
+        supports_batching BOOLEAN DEFAULT false,
+        rate_limit_per_minute INTEGER,
+        cost_per_invocation INTEGER DEFAULT 1,
+        reliability_score INTEGER DEFAULT 100,
+        average_response_time INTEGER
       )
     `);
 
-    // Create agent_tools table (many-to-many relationship)
+    // Create agent_tools table (many-to-many relationship, enhanced)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS agent_tools (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -75,11 +82,14 @@ export function initializeDatabase() {
         required_permissions TEXT,
         usage_description TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        context_requirements TEXT,
+        delegation_allowed BOOLEAN DEFAULT false,
+        cost_sharing_enabled BOOLEAN DEFAULT false,
         UNIQUE(agent_id, tool_id)
       )
     `);
 
-    // Create user_credentials table (encrypted storage)
+    // Create user_credentials table (encrypted storage, enhanced)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS user_credentials (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -91,11 +101,14 @@ export function initializeDatabase() {
         expires_at DATETIME,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        company_id TEXT,
+        access_level TEXT CHECK (access_level IN ('personal', 'shared', 'company')) DEFAULT 'personal',
+        auto_rotate BOOLEAN DEFAULT false,
         UNIQUE(user_id, tool_id, credential_name)
       )
     `);
 
-    // Create tool_usage_logs table
+    // Create tool_usage_logs table (enhanced)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS tool_usage_logs (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -107,11 +120,16 @@ export function initializeDatabase() {
         response_status INTEGER,
         response_data TEXT,
         credits_consumed INTEGER DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        task_id TEXT,
+        workflow_execution_id TEXT,
+        context_session_id TEXT,
+        response_time_ms INTEGER,
+        success BOOLEAN DEFAULT true
       )
     `);
 
-    // Create agents table (updated with tool capabilities)
+    // Create agents table (enhanced with A2A support)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS agents (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -128,7 +146,18 @@ export function initializeDatabase() {
         demo_url TEXT,
         documentation TEXT,
         requires_tools BOOLEAN DEFAULT false,
-        tool_credits_per_use INTEGER DEFAULT 1
+        tool_credits_per_use INTEGER DEFAULT 1,
+        version TEXT DEFAULT '1.0.0',
+        service_endpoint_url TEXT,
+        supported_modalities TEXT DEFAULT '["text"]',
+        capabilities TEXT DEFAULT '[]',
+        skills TEXT DEFAULT '[]',
+        authentication_requirements TEXT DEFAULT '{"type": "none"}',
+        input_schema TEXT,
+        output_schema TEXT,
+        collaboration_enabled BOOLEAN DEFAULT false,
+        max_concurrent_tasks INTEGER DEFAULT 1,
+        average_response_time INTEGER DEFAULT 5000
       )
     `);
 
@@ -191,6 +220,260 @@ export function initializeDatabase() {
         processed_at DATETIME
       )
     `);
+
+    // Create A2A Tasks table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS a2a_tasks (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        client_agent_id TEXT REFERENCES agents(id),
+        server_agent_id TEXT REFERENCES agents(id) NOT NULL,
+        user_id TEXT REFERENCES users(id) NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        status TEXT CHECK (status IN ('submitted', 'working', 'input_required', 'completed', 'failed', 'cancelled')) DEFAULT 'submitted',
+        priority TEXT CHECK (priority IN ('low', 'medium', 'high', 'urgent')) DEFAULT 'medium',
+        input_data TEXT,
+        output_data TEXT,
+        error_message TEXT,
+        estimated_credits INTEGER DEFAULT 0,
+        actual_credits_consumed INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        started_at DATETIME,
+        completed_at DATETIME,
+        expires_at DATETIME
+      )
+    `);
+
+    // Create A2A Messages table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS a2a_messages (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        task_id TEXT REFERENCES a2a_tasks(id) ON DELETE CASCADE,
+        sender_type TEXT CHECK (sender_type IN ('user', 'agent')) NOT NULL,
+        sender_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        message_type TEXT CHECK (message_type IN ('instruction', 'response', 'status_update', 'error', 'clarification')) DEFAULT 'response',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create A2A Artifacts table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS a2a_artifacts (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        task_id TEXT REFERENCES a2a_tasks(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT,
+        content_type TEXT DEFAULT 'text/plain',
+        content TEXT NOT NULL,
+        file_size INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create Agent Companies table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS agent_companies (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        name TEXT NOT NULL,
+        description TEXT,
+        owner_id TEXT REFERENCES users(id) NOT NULL,
+        company_type TEXT CHECK (company_type IN ('individual', 'team', 'enterprise')) DEFAULT 'individual',
+        max_agents INTEGER DEFAULT 10,
+        shared_credit_pool INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create Company Members table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS company_members (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        company_id TEXT REFERENCES agent_companies(id) ON DELETE CASCADE,
+        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT CHECK (role IN ('owner', 'admin', 'member', 'viewer')) DEFAULT 'member',
+        permissions TEXT DEFAULT '[]',
+        joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(company_id, user_id)
+      )
+    `);
+
+    // Create Company Agents table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS company_agents (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        company_id TEXT REFERENCES agent_companies(id) ON DELETE CASCADE,
+        agent_id TEXT REFERENCES agents(id) ON DELETE CASCADE,
+        role TEXT CHECK (role IN ('manager', 'specialist', 'worker')) DEFAULT 'worker',
+        access_level TEXT CHECK (access_level IN ('full', 'limited', 'read_only')) DEFAULT 'limited',
+        can_delegate_tasks BOOLEAN DEFAULT false,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(company_id, agent_id)
+      )
+    `);
+
+    // Create Shared Resources table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS shared_resources (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        company_id TEXT REFERENCES agent_companies(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        type TEXT CHECK (type IN ('knowledge_base', 'tool_configuration', 'workflow_template', 'credential_set')) NOT NULL,
+        content TEXT NOT NULL,
+        access_level TEXT CHECK (access_level IN ('company', 'team', 'private')) DEFAULT 'company',
+        created_by TEXT REFERENCES users(id),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create Workflows table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS workflows (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        name TEXT NOT NULL,
+        description TEXT,
+        owner_id TEXT REFERENCES users(id) NOT NULL,
+        company_id TEXT REFERENCES agent_companies(id),
+        workflow_definition TEXT NOT NULL,
+        status TEXT CHECK (status IN ('draft', 'active', 'paused', 'archived')) DEFAULT 'draft',
+        version TEXT DEFAULT '1.0.0',
+        is_template BOOLEAN DEFAULT false,
+        is_public BOOLEAN DEFAULT false,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create Workflow Executions table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_executions (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        workflow_id TEXT REFERENCES workflows(id) ON DELETE CASCADE,
+        user_id TEXT REFERENCES users(id) NOT NULL,
+        status TEXT CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')) DEFAULT 'queued',
+        input_data TEXT,
+        output_data TEXT,
+        error_message TEXT,
+        total_credits_consumed INTEGER DEFAULT 0,
+        started_at DATETIME,
+        completed_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create Workflow Execution Steps table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_execution_steps (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        execution_id TEXT REFERENCES workflow_executions(id) ON DELETE CASCADE,
+        step_name TEXT NOT NULL,
+        agent_id TEXT REFERENCES agents(id),
+        task_id TEXT REFERENCES a2a_tasks(id),
+        status TEXT CHECK (status IN ('pending', 'running', 'completed', 'failed', 'skipped')) DEFAULT 'pending',
+        input_data TEXT,
+        output_data TEXT,
+        error_message TEXT,
+        credits_consumed INTEGER DEFAULT 0,
+        started_at DATETIME,
+        completed_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create MCP Context Sessions table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_context_sessions (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT REFERENCES users(id) NOT NULL,
+        agent_id TEXT REFERENCES agents(id),
+        tool_id TEXT REFERENCES mcp_tools(id) NOT NULL,
+        session_data TEXT NOT NULL DEFAULT '{}',
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Update existing tables with enhanced fields (safely)
+    try {
+      sqlite.exec(`ALTER TABLE wallets ADD COLUMN company_id TEXT`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE wallets ADD COLUMN wallet_type TEXT CHECK (wallet_type IN ('personal', 'company', 'escrow')) DEFAULT 'personal'`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE wallets ADD COLUMN credit_limit INTEGER`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE wallets ADD COLUMN auto_recharge_enabled BOOLEAN DEFAULT false`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE wallets ADD COLUMN auto_recharge_threshold INTEGER`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE wallets ADD COLUMN auto_recharge_amount INTEGER`);
+    } catch (e) { /* Column might already exist */ }
+
+    try {
+      sqlite.exec(`ALTER TABLE credit_transactions ADD COLUMN task_id TEXT`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE credit_transactions ADD COLUMN workflow_execution_id TEXT`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE credit_transactions ADD COLUMN company_id TEXT`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE credit_transactions ADD COLUMN transaction_category TEXT CHECK (transaction_category IN ('agent_usage', 'tool_usage', 'collaboration', 'system', 'refund')) DEFAULT 'agent_usage'`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE credit_transactions ADD COLUMN exchange_rate REAL DEFAULT 1.0`);
+    } catch (e) { /* Column might already exist */ }
+
+    try {
+      sqlite.exec(`ALTER TABLE purchases ADD COLUMN company_id TEXT`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE purchases ADD COLUMN collaboration_enabled BOOLEAN DEFAULT false`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE purchases ADD COLUMN max_concurrent_usage INTEGER`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE purchases ADD COLUMN expires_at DATETIME`);
+    } catch (e) { /* Column might already exist */ }
+
+    try {
+      sqlite.exec(`ALTER TABLE reviews ADD COLUMN collaboration_rating INTEGER CHECK (collaboration_rating >= 1 AND collaboration_rating <= 5)`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE reviews ADD COLUMN performance_rating INTEGER CHECK (performance_rating >= 1 AND performance_rating <= 5)`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE reviews ADD COLUMN reliability_rating INTEGER CHECK (reliability_rating >= 1 AND reliability_rating <= 5)`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE reviews ADD COLUMN verified_purchase BOOLEAN DEFAULT false`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE reviews ADD COLUMN helpful_votes INTEGER DEFAULT 0`);
+    } catch (e) { /* Column might already exist */ }
+
+    try {
+      sqlite.exec(`ALTER TABLE payout_requests ADD COLUMN company_id TEXT`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE payout_requests ADD COLUMN payout_method TEXT CHECK (payout_method IN ('bank_transfer', 'paypal', 'stripe', 'crypto')) DEFAULT 'stripe'`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE payout_requests ADD COLUMN processing_fee INTEGER DEFAULT 0`);
+    } catch (e) { /* Column might already exist */ }
+    try {
+      sqlite.exec(`ALTER TABLE payout_requests ADD COLUMN net_amount INTEGER DEFAULT 0`);
+    } catch (e) { /* Column might already exist */ }
 
     // Insert seed data
     seedDatabase();
@@ -274,38 +557,90 @@ function seedDatabase() {
         'https://docs.emailservice.com'
       );
 
-      // Insert sample agents with tool integration
+      // Insert sample agents with enhanced A2A capabilities
       const agent1Id = 'agent-1-12345678';
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (
+          id, owner_id, name, description, price_per_use_credits, price_one_time_credits, 
+          category, tags, requires_tools, tool_credits_per_use, version, 
+          service_endpoint_url, supported_modalities, capabilities, skills, 
+          authentication_requirements, collaboration_enabled, max_concurrent_tasks, average_response_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         agent1Id, adminId,
         'Smart Spreadsheet Assistant',
-        'AI agent that reads, analyzes, and updates Google Sheets automatically. Can generate reports, clean data, and perform calculations.',
-        15, 150, 'Productivity', 'spreadsheets,google-sheets,data-analysis', 1, 2
+        'AI agent that reads, analyzes, and updates Google Sheets automatically. Can generate reports, clean data, and perform calculations. Supports collaboration with other agents.',
+        15, 150, 'Productivity', 'spreadsheets,google-sheets,data-analysis,collaboration', 1, 2, '1.2.0',
+        'https://api.agentverse.com/agents/spreadsheet-assistant',
+        '["text", "image"]',
+        '["data_analysis", "spreadsheet_manipulation", "report_generation", "task_delegation"]',
+        '["google_sheets_api", "data_visualization", "statistical_analysis", "collaborative_editing"]',
+        '{"type": "api_key", "required_headers": ["X-API-Key"]}',
+        1, 3, 2500
       );
 
       const agent2Id = 'agent-2-12345678';
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_subscription_credits, category, tags, requires_tools, tool_credits_per_use)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (
+          id, owner_id, name, description, price_per_use_credits, price_subscription_credits, 
+          category, tags, requires_tools, tool_credits_per_use, version, 
+          service_endpoint_url, supported_modalities, capabilities, skills, 
+          authentication_requirements, collaboration_enabled, max_concurrent_tasks, average_response_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         agent2Id, adminId,
         'Team Communication Bot',
-        'AI agent that helps manage team communications across Slack and email. Can schedule messages, analyze sentiment, and generate summaries.',
-        30, 600, 'Communication', 'slack,email,team-management', 1, 3
+        'AI agent that helps manage team communications across Slack and email. Can schedule messages, analyze sentiment, and generate summaries. Excellent for multi-agent workflows.',
+        30, 600, 'Communication', 'slack,email,team-management,orchestration', 1, 3, '2.1.0',
+        'https://api.agentverse.com/agents/communication-bot',
+        '["text", "audio"]',
+        '["message_scheduling", "sentiment_analysis", "team_coordination", "workflow_orchestration"]',
+        '["slack_integration", "email_automation", "natural_language_processing", "task_routing"]',
+        '{"type": "oauth", "scopes": ["chat:write", "channels:read"]}',
+        1, 5, 1800
       );
 
       const agent3Id = 'agent-3-12345678';
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (
+          id, owner_id, name, description, price_per_use_credits, price_one_time_credits, 
+          category, tags, requires_tools, tool_credits_per_use, version, 
+          service_endpoint_url, supported_modalities, capabilities, skills, 
+          authentication_requirements, collaboration_enabled, max_concurrent_tasks, average_response_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         agent3Id, adminId,
         'Data Analyzer AI',
-        'Powerful AI agent for analyzing datasets and generating insights. Works without external tools.',
-        50, 800, 'Data Science', 'data-analysis,insights,visualization', 0, 0
+        'Powerful AI agent for analyzing datasets and generating insights. Works without external tools but can collaborate with other agents to provide comprehensive analysis.',
+        50, 800, 'Data Science', 'data-analysis,insights,visualization,collaboration', 0, 0, '3.0.1',
+        'https://api.agentverse.com/agents/data-analyzer',
+        '["text", "image", "video"]',
+        '["statistical_analysis", "data_visualization", "pattern_recognition", "collaborative_insights"]',
+        '["machine_learning", "data_mining", "predictive_modeling", "report_generation"]',
+        '{"type": "jwt", "required_headers": ["Authorization"]}',
+        1, 2, 3200
+      );
+
+      // Insert a collaborative workflow agent
+      const agent4Id = 'agent-4-12345678';
+      sqlite.prepare(`
+        INSERT INTO agents (
+          id, owner_id, name, description, price_per_use_credits, price_subscription_credits, 
+          category, tags, requires_tools, tool_credits_per_use, version, 
+          service_endpoint_url, supported_modalities, capabilities, skills, 
+          authentication_requirements, collaboration_enabled, max_concurrent_tasks, average_response_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        agent4Id, adminId,
+        'Workflow Orchestrator',
+        'Master agent that coordinates complex multi-agent workflows. Can delegate tasks, manage dependencies, and ensure smooth collaboration between specialized agents.',
+        25, 400, 'Orchestration', 'workflow,orchestration,management,a2a', 0, 1, '1.0.0',
+        'https://api.agentverse.com/agents/workflow-orchestrator',
+        '["text"]',
+        '["task_delegation", "workflow_management", "agent_coordination", "dependency_resolution"]',
+        '["a2a_protocol", "task_scheduling", "resource_management", "error_handling"]',
+        '{"type": "api_key", "required_headers": ["X-API-Key"]}',
+        1, 10, 1500
       );
 
       // Link agents to tools they use
@@ -321,7 +656,205 @@ function seedDatabase() {
         agent2Id, tool3Id, 'send_email', 'Sends follow-up emails and notifications to team members'
       );
 
-      console.log('Sample data seeded successfully with MCP tools');
+      // Create sample agent companies
+      const company1Id = 'company-1-12345678';
+      sqlite.prepare(`
+        INSERT INTO agent_companies (id, name, description, owner_id, company_type, max_agents, shared_credit_pool)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        company1Id,
+        'DataFlow Solutions',
+        'Collaborative AI company specializing in data processing and analysis workflows',
+        adminId,
+        'team',
+        25,
+        5000
+      );
+
+      // Add company members
+      sqlite.prepare(`
+        INSERT INTO company_members (company_id, user_id, role, permissions)
+        VALUES (?, ?, ?, ?)
+      `).run(
+        company1Id, adminId, 'owner', '["manage_agents", "manage_members", "manage_billing", "execute_workflows"]'
+      );
+
+      sqlite.prepare(`
+        INSERT INTO company_members (company_id, user_id, role, permissions)
+        VALUES (?, ?, ?, ?)
+      `).run(
+        company1Id, user1Id, 'member', '["use_agents", "create_workflows"]'
+      );
+
+      // Add agents to company
+      sqlite.prepare(`
+        INSERT INTO company_agents (company_id, agent_id, role, access_level, can_delegate_tasks)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(company1Id, agent1Id, 'specialist', 'full', true);
+
+      sqlite.prepare(`
+        INSERT INTO company_agents (company_id, agent_id, role, access_level, can_delegate_tasks)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(company1Id, agent3Id, 'specialist', 'full', true);
+
+      sqlite.prepare(`
+        INSERT INTO company_agents (company_id, agent_id, role, access_level, can_delegate_tasks)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(company1Id, agent4Id, 'manager', 'full', true);
+
+      // Create a sample workflow
+      const workflow1Id = 'workflow-1-12345678';
+      sqlite.prepare(`
+        INSERT INTO workflows (id, name, description, owner_id, company_id, workflow_definition, status, is_template, is_public)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        workflow1Id,
+        'Data Analysis Pipeline',
+        'Automated pipeline for processing spreadsheet data and generating insights',
+        adminId,
+        company1Id,
+        JSON.stringify({
+          nodes: [
+            {
+              id: 'start',
+              type: 'trigger',
+              position: { x: 100, y: 100 },
+              data: { label: 'Data Input' }
+            },
+            {
+              id: 'agent1',
+              type: 'agent',
+              position: { x: 300, y: 100 },
+              data: { 
+                label: 'Spreadsheet Assistant',
+                agent_id: agent1Id,
+                task: 'Process and clean input data'
+              }
+            },
+            {
+              id: 'agent3',
+              type: 'agent',
+              position: { x: 500, y: 100 },
+              data: { 
+                label: 'Data Analyzer',
+                agent_id: agent3Id,
+                task: 'Analyze processed data and generate insights'
+              }
+            },
+            {
+              id: 'end',
+              type: 'output',
+              position: { x: 700, y: 100 },
+              data: { label: 'Final Report' }
+            }
+          ],
+          edges: [
+            { id: 'e1', source: 'start', target: 'agent1' },
+            { id: 'e2', source: 'agent1', target: 'agent3' },
+            { id: 'e3', source: 'agent3', target: 'end' }
+          ]
+        }),
+        'active',
+        true,
+        true
+      );
+
+      // Create sample shared resources
+      sqlite.prepare(`
+        INSERT INTO shared_resources (company_id, name, type, content, access_level, created_by)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        company1Id,
+        'Data Processing Guidelines',
+        'knowledge_base',
+        JSON.stringify({
+          title: 'Data Processing Best Practices',
+          content: 'Guidelines for handling sensitive data, cleaning procedures, and quality assurance steps.',
+          version: '1.0',
+          tags: ['data-processing', 'guidelines', 'quality-assurance']
+        }),
+        'company',
+        adminId
+      );
+
+      // Create sample A2A task
+      const task1Id = 'task-1-12345678';
+      sqlite.prepare(`
+        INSERT INTO a2a_tasks (id, client_agent_id, server_agent_id, user_id, title, description, status, priority, estimated_credits)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        task1Id,
+        agent4Id,
+        agent1Id,
+        adminId,
+        'Process Q4 Sales Data',
+        'Clean and analyze the Q4 sales spreadsheet, focusing on regional performance metrics',
+        'completed',
+        'high',
+        35
+      );
+
+      // Create sample messages for the task
+      sqlite.prepare(`
+        INSERT INTO a2a_messages (task_id, sender_type, sender_id, content, message_type)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        task1Id,
+        'agent',
+        agent4Id,
+        JSON.stringify({
+          parts: [{
+            type: 'text/plain',
+            content: 'Please process the attached Q4 sales data. Focus on regional performance and identify any anomalies.'
+          }]
+        }),
+        'instruction'
+      );
+
+      sqlite.prepare(`
+        INSERT INTO a2a_messages (task_id, sender_type, sender_id, content, message_type)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        task1Id,
+        'agent',
+        agent1Id,
+        JSON.stringify({
+          parts: [{
+            type: 'text/plain',
+            content: 'Task completed successfully. I have cleaned the data and identified 3 regional anomalies. Full analysis report attached.'
+          }]
+        }),
+        'response'
+      );
+
+      // Create sample artifact
+      sqlite.prepare(`
+        INSERT INTO a2a_artifacts (task_id, name, description, content_type, content)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        task1Id,
+        'Q4_Sales_Analysis_Report.json',
+        'Comprehensive analysis of Q4 sales data with regional breakdown and anomaly detection',
+        'application/json',
+        JSON.stringify({
+          summary: 'Q4 sales analysis completed',
+          total_records: 15420,
+          anomalies_found: 3,
+          regional_performance: {
+            north: { sales: 2.4e6, growth: 12.5 },
+            south: { sales: 1.8e6, growth: 8.2 },
+            east: { sales: 2.1e6, growth: 15.1 },
+            west: { sales: 1.9e6, growth: 6.8 }
+          },
+          recommendations: [
+            'Investigate low growth in West region',
+            'Replicate East region strategies',
+            'Address data quality issues in anomalous records'
+          ]
+        })
+      );
+
+      console.log('Sample data seeded successfully with A2A collaboration features');
     }
   } catch (error) {
     console.error('Error seeding database:', error);
