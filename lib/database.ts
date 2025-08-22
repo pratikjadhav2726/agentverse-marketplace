@@ -95,40 +95,114 @@ export function initializeDatabase() {
       )
     `);
 
-    // Create tool_usage_logs table
+    // Create tool_usage_logs table (enhanced)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS tool_usage_logs (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
         user_id TEXT REFERENCES users(id),
         agent_id TEXT REFERENCES agents(id),
         tool_id TEXT REFERENCES mcp_tools(id),
+        tool_name TEXT,
         usage_type TEXT CHECK (usage_type IN ('api_call', 'authentication', 'error')) DEFAULT 'api_call',
         request_data TEXT,
         response_status INTEGER,
         response_data TEXT,
         credits_consumed INTEGER DEFAULT 0,
+        execution_time_ms INTEGER DEFAULT 0,
+        success BOOLEAN DEFAULT true,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    // Create agents table (updated with tool capabilities)
+    // Create A2A tasks table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS a2a_tasks (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        name TEXT NOT NULL,
+        description TEXT,
+        agent_id TEXT REFERENCES agents(id),
+        user_id TEXT REFERENCES users(id),
+        status TEXT CHECK (status IN ('submitted', 'working', 'input_required', 'completed', 'failed', 'cancelled')) DEFAULT 'submitted',
+        priority TEXT CHECK (priority IN ('low', 'normal', 'high', 'urgent')) DEFAULT 'normal',
+        input_data TEXT, -- JSON
+        output_data TEXT, -- JSON
+        context_data TEXT, -- JSON
+        timeout_seconds INTEGER DEFAULT 300,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        started_at DATETIME,
+        completed_at DATETIME,
+        error_message TEXT
+      )
+    `);
+
+    // Create workflows table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS workflows (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        user_id TEXT REFERENCES users(id),
+        name TEXT NOT NULL,
+        description TEXT,
+        workflow_data TEXT, -- JSON blob containing nodes and edges
+        status TEXT DEFAULT 'draft',
+        version TEXT DEFAULT '1.0.0',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_executed_at DATETIME
+      )
+    `);
+
+    // Create workflow_executions table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_executions (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        workflow_id TEXT REFERENCES workflows(id),
+        user_id TEXT REFERENCES users(id),
+        status TEXT CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')) DEFAULT 'pending',
+        inputs TEXT, -- JSON
+        outputs TEXT, -- JSON
+        start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        end_time DATETIME,
+        error_message TEXT,
+        execution_logs TEXT -- JSON array of logs
+      )
+    `);
+
+    // Create agents table (enhanced with A2A and MCP support)
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS agents (
         id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
         owner_id TEXT REFERENCES users(id),
         name TEXT NOT NULL,
         description TEXT,
+        version TEXT DEFAULT '1.0.0',
         price_per_use_credits INTEGER NOT NULL,
         price_subscription_credits INTEGER,
         price_one_time_credits INTEGER,
         status TEXT DEFAULT 'active',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         category TEXT,
         tags TEXT,
         demo_url TEXT,
         documentation TEXT,
         requires_tools BOOLEAN DEFAULT false,
-        tool_credits_per_use INTEGER DEFAULT 1
+        tool_credits_per_use INTEGER DEFAULT 1,
+        -- A2A Protocol Support
+        service_endpoint TEXT,
+        agent_card TEXT, -- JSON blob for agent card
+        capabilities TEXT, -- JSON array of capabilities
+        supported_modalities TEXT DEFAULT '["text"]', -- JSON array
+        a2a_capabilities TEXT DEFAULT '{}', -- JSON object
+        -- Performance metrics
+        performance_score REAL DEFAULT 0.0,
+        success_rate REAL DEFAULT 0.0,
+        avg_response_time_ms INTEGER DEFAULT 0,
+        total_invocations INTEGER DEFAULT 0,
+        last_active_at DATETIME,
+        -- MCP Integration
+        mcp_tools TEXT DEFAULT '[]', -- JSON array of tool names
+        langchain_config TEXT DEFAULT '{}' -- JSON config for LangChain
       )
     `);
 
@@ -274,38 +348,113 @@ function seedDatabase() {
         'https://docs.emailservice.com'
       );
 
-      // Insert sample agents with tool integration
+      // Insert sample agents with enhanced A2A and MCP integration
       const agent1Id = 'agent-1-12345678';
+      const agent1Card = JSON.stringify({
+        name: 'Smart Spreadsheet Assistant',
+        description: 'AI agent that reads, analyzes, and updates Google Sheets automatically',
+        version: '1.0.0',
+        service_endpoint: 'http://localhost:8002/agents/agent-1-12345678',
+        capabilities: [
+          { name: 'spreadsheet_analysis', description: 'Analyze spreadsheet data and patterns' },
+          { name: 'data_cleaning', description: 'Clean and normalize data' },
+          { name: 'report_generation', description: 'Generate reports from data' }
+        ],
+        supported_modalities: ['text', 'structured_data'],
+        a2a_capabilities: { streaming: true, batch_processing: true },
+        metadata: { category: 'Productivity', use_cases: ['data_analysis', 'reporting'] }
+      });
+
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (
+          id, owner_id, name, description, version, price_per_use_credits, price_one_time_credits, 
+          category, tags, requires_tools, tool_credits_per_use, service_endpoint, agent_card,
+          capabilities, supported_modalities, a2a_capabilities, mcp_tools, langchain_config
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         agent1Id, adminId,
         'Smart Spreadsheet Assistant',
         'AI agent that reads, analyzes, and updates Google Sheets automatically. Can generate reports, clean data, and perform calculations.',
-        15, 150, 'Productivity', 'spreadsheets,google-sheets,data-analysis', 1, 2
+        '1.0.0', 15, 150, 'Productivity', 'spreadsheets,google-sheets,data-analysis', 1, 2,
+        'http://localhost:8002/agents/agent-1-12345678',
+        agent1Card,
+        JSON.stringify(['spreadsheet_analysis', 'data_cleaning', 'report_generation']),
+        JSON.stringify(['text', 'structured_data']),
+        JSON.stringify({ streaming: true, batch_processing: true }),
+        JSON.stringify(['database_query', 'http_request']),
+        JSON.stringify({ model: 'gpt-3.5-turbo', temperature: 0.3, max_tokens: 1500 })
       );
 
       const agent2Id = 'agent-2-12345678';
+      const agent2Card = JSON.stringify({
+        name: 'Team Communication Bot',
+        description: 'AI agent for team communication management',
+        version: '1.0.0',
+        service_endpoint: 'http://localhost:8002/agents/agent-2-12345678',
+        capabilities: [
+          { name: 'message_sending', description: 'Send messages to team channels' },
+          { name: 'sentiment_analysis', description: 'Analyze message sentiment' },
+          { name: 'summary_generation', description: 'Generate conversation summaries' }
+        ],
+        supported_modalities: ['text', 'audio'],
+        a2a_capabilities: { streaming: true, push_notifications: true },
+        metadata: { category: 'Communication', platforms: ['slack', 'email'] }
+      });
+
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_subscription_credits, category, tags, requires_tools, tool_credits_per_use)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (
+          id, owner_id, name, description, version, price_per_use_credits, price_subscription_credits, 
+          category, tags, requires_tools, tool_credits_per_use, service_endpoint, agent_card,
+          capabilities, supported_modalities, a2a_capabilities, mcp_tools, langchain_config
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         agent2Id, adminId,
         'Team Communication Bot',
         'AI agent that helps manage team communications across Slack and email. Can schedule messages, analyze sentiment, and generate summaries.',
-        30, 600, 'Communication', 'slack,email,team-management', 1, 3
+        '1.0.0', 30, 600, 'Communication', 'slack,email,team-management', 1, 3,
+        'http://localhost:8002/agents/agent-2-12345678',
+        agent2Card,
+        JSON.stringify(['message_sending', 'sentiment_analysis', 'summary_generation']),
+        JSON.stringify(['text', 'audio']),
+        JSON.stringify({ streaming: true, push_notifications: true }),
+        JSON.stringify(['http_request', 'file_operations']),
+        JSON.stringify({ model: 'gpt-3.5-turbo', temperature: 0.7, max_tokens: 1000 })
       );
 
       const agent3Id = 'agent-3-12345678';
+      const agent3Card = JSON.stringify({
+        name: 'Data Analyzer AI',
+        description: 'Advanced AI agent for data analysis and insights',
+        version: '1.0.0',
+        service_endpoint: 'http://localhost:8002/agents/agent-3-12345678',
+        capabilities: [
+          { name: 'statistical_analysis', description: 'Perform statistical analysis on datasets' },
+          { name: 'pattern_recognition', description: 'Identify patterns in data' },
+          { name: 'visualization', description: 'Create data visualizations' }
+        ],
+        supported_modalities: ['text', 'structured_data', 'images'],
+        a2a_capabilities: { batch_processing: true, multi_modal: true },
+        metadata: { category: 'Data Science', specialties: ['statistics', 'ml', 'visualization'] }
+      });
+
       sqlite.prepare(`
-        INSERT INTO agents (id, owner_id, name, description, price_per_use_credits, price_one_time_credits, category, tags, requires_tools, tool_credits_per_use)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO agents (
+          id, owner_id, name, description, version, price_per_use_credits, price_one_time_credits, 
+          category, tags, requires_tools, tool_credits_per_use, service_endpoint, agent_card,
+          capabilities, supported_modalities, a2a_capabilities, mcp_tools, langchain_config
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         agent3Id, adminId,
         'Data Analyzer AI',
         'Powerful AI agent for analyzing datasets and generating insights. Works without external tools.',
-        50, 800, 'Data Science', 'data-analysis,insights,visualization', 0, 0
+        '1.0.0', 50, 800, 'Data Science', 'data-analysis,insights,visualization', 0, 0,
+        'http://localhost:8002/agents/agent-3-12345678',
+        agent3Card,
+        JSON.stringify(['statistical_analysis', 'pattern_recognition', 'visualization']),
+        JSON.stringify(['text', 'structured_data', 'images']),
+        JSON.stringify({ batch_processing: true, multi_modal: true }),
+        JSON.stringify([]),
+        JSON.stringify({ model: 'gpt-4', temperature: 0.1, max_tokens: 2000 })
       );
 
       // Link agents to tools they use
