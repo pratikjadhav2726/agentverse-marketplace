@@ -1,0 +1,7 @@
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+pydantic==2.7.1
+
+# Optional for future use
+# langchain==0.2.5
+# langgraph==0.1.1
