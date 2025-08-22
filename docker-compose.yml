@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  redis:
+    image: redis:7-alpine
+    container_name: agentverse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Python AI Microservices
+  workflow-engine:
+    build:
+      context: ./python_services/workflow_engine
+      dockerfile: Dockerfile
+    container_name: agentverse-workflow-engine
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./python_services/workflow_engine:/app
+    restart: unless-stopped
+
+  agent-runtime:
+    build:
+      context: ./python_services/agent_runtime
+      dockerfile: Dockerfile
+    container_name: agentverse-agent-runtime
+    ports:
+      - "8002:8002"
+    environment:
+      - REDIS_URL=redis://redis:6379/2
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./python_services/agent_runtime:/app
+    restart: unless-stopped
+
+  mcp-server:
+    build:
+      context: ./python_services/mcp_server
+      dockerfile: Dockerfile
+    container_name: agentverse-mcp-server
+    ports:
+      - "8003:8003"
+    environment:
+      - REDIS_URL=redis://redis:6379/3
+      - MCP_ENCRYPTION_KEY=${MCP_ENCRYPTION_KEY}
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./python_services/mcp_server:/app
+    restart: unless-stopped
+
+  a2a-service:
+    build:
+      context: ./python_services/a2a_service
+      dockerfile: Dockerfile
+    container_name: agentverse-a2a-service
+    ports:
+      - "8004:8004"
+    environment:
+      - REDIS_URL=redis://redis:6379/4
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./python_services/a2a_service:/app
+    restart: unless-stopped
+
+  ai-orchestrator:
+    build:
+      context: ./python_services/ai_orchestrator
+      dockerfile: Dockerfile
+    container_name: agentverse-ai-orchestrator
+    ports:
+      - "8005:8005"
+    environment:
+      - REDIS_URL=redis://redis:6379/5
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./python_services/ai_orchestrator:/app
+      - vector_db:/app/vector_db
+    restart: unless-stopped
+
+  # Celery Worker for Workflow Engine
+  celery-worker:
+    build:
+      context: ./python_services/workflow_engine
+      dockerfile: Dockerfile
+    container_name: agentverse-celery-worker
+    command: celery -A main.celery_app worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - PYTHONPATH=/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      workflow-engine:
+        condition: service_started
+    volumes:
+      - ./python_services/workflow_engine:/app
+    restart: unless-stopped
+
+  # Next.js Frontend (existing)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: agentverse-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - WORKFLOW_ENGINE_URL=http://workflow-engine:8001
+      - AGENT_RUNTIME_URL=http://agent-runtime:8002
+      - MCP_SERVER_URL=http://mcp-server:8003
+      - A2A_SERVICE_URL=http://a2a-service:8004
+      - AI_ORCHESTRATOR_URL=http://ai-orchestrator:8005
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=http://localhost:3000
+    depends_on:
+      - workflow-engine
+      - agent-runtime
+      - mcp-server
+      - a2a-service
+      - ai-orchestrator
+    restart: unless-stopped
+
+  # Nginx API Gateway (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: agentverse-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - workflow-engine
+      - agent-runtime
+      - mcp-server
+      - a2a-service
+      - ai-orchestrator
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+  vector_db:
+    driver: local
+
+networks:
+  default:
+    name: agentverse-network

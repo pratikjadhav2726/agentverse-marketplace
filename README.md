@@ -63,14 +63,16 @@
 We believe in transparency and open communication with our community. Here you'll find regular updates on the progress of AgentVerse Marketplace, including UI improvements, backend features, database changes, and more. We welcome your feedback and contributions!
 
 ### Recent Highlights
-- **UI:** Modern, responsive dashboard and marketplace pages implemented. Enhanced agent cards, review forms, and workflow builder for a seamless user experience.
-- **Database:** Core schema established using Supabase. User, agent, purchase, and review tables are live. Mock DB available for local development.
-- **Backend:** RESTful API endpoints for agent management, purchases, reviews, payments, and workflows. Modular structure for scalability and maintainability.
-- **Credit System:** Initial credit purchase and consumption logic in place. Users can buy credits, spend on agents, and view transaction history.
-- **Authentication:** Secure login/signup with session management. Seller and buyer roles supported.
-- **Payments:** Stripe integration for agent and credit purchases. Webhooks and payout logic for sellers.
-- **Testing & Playground:** Built-in agent playground for sellers to test agents before publishing.
-- **Open Source:** Following best practices—clear code structure, documentation, and community guidelines. See [CONTRIBUTING.md](./CONTRIBUTING.md) (coming soon) for how to get involved!
+- **🏗️ Microservices Architecture:** Complete Python-based AI backend with FastAPI, LangChain, and LangGraph integration. Five specialized microservices for workflow orchestration, agent runtime, MCP tools, A2A protocol, and AI coordination.
+- **🤖 AI Agent Runtime:** LangChain-powered agent execution environment with dynamic tool loading, memory management, and performance monitoring.
+- **🔄 Workflow Engine:** LangGraph-based visual workflow builder with state management, async processing via Celery, and real-time execution monitoring.
+- **🛠️ MCP Protocol:** Full Model Context Protocol implementation with secure tool registry, encrypted credential storage, and multi-tenant resource management.
+- **🔗 A2A Protocol:** Agent2Agent communication system with discovery, task delegation, message passing, and performance tracking.
+- **💾 Vector Database:** ChromaDB integration for embeddings, similarity search, and AI agent memory with persistent storage.
+- **🔐 Security Layer:** JWT authentication, encrypted credentials, rate limiting, audit logging, and role-based access control.
+- **🐳 Container Support:** Complete Docker Compose setup with service orchestration, health checks, and development/production configurations.
+- **📊 Admin Dashboard:** Comprehensive microservices monitoring with health checks, performance metrics, and system overview.
+- **🔧 Developer Experience:** One-click setup script, comprehensive documentation, API documentation, and development tools.
 
 _Stay tuned for more updates. We value your input—open an issue or join the discussion to help shape AgentVerse!_
 
@@ -111,7 +113,70 @@ AgentVerse Marketplace is designed with security, transparency, and extensibilit
 - **Input Validation:** All API endpoints validate input and enforce required fields and types.
 - **Future Enhancements:** Plans for OAuth 2.0, rate limiting, credential rotation, and advanced analytics are in the roadmap.
 
-For more details, see [MCP_TOOLS_GUIDE.md](./MCP_TOOLS_GUIDE.md) and [MARKETPLACE_SETUP.md](./MARKETPLACE_SETUP.md).
+For more details, see [MCP_TOOLS_GUIDE.md](./MCP_TOOLS_GUIDE.md), [MARKETPLACE_SETUP.md](./MARKETPLACE_SETUP.md), and [MVP_IMPLEMENTATION_SUMMARY.md](./MVP_IMPLEMENTATION_SUMMARY.md).
+
+---
+
+## 🚀 Quick Start
+
+### Automated Setup (Recommended)
+```bash
+# One-command setup for the entire platform
+./setup_agentverse.sh
+```
+
+### Manual Setup
+
+#### Prerequisites
+- Node.js 18+ 
+- Python 3.11+
+- Redis server
+- OpenAI API key
+
+#### Installation
+```bash
+# 1. Install frontend dependencies
+npm install
+
+# 2. Setup Python microservices
+cd python_services
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cd ..
+
+# 3. Configure environment
+cp .env.example .env
+# Update .env with your API keys
+```
+
+#### Running the Platform
+
+**Development Mode:**
+```bash
+# Terminal 1: Start Next.js frontend
+npm run dev
+
+# Terminal 2: Start Python microservices
+cd python_services && ./start_services.sh
+```
+
+**Docker Mode:**
+```bash
+docker-compose up --build
+```
+
+#### Access Points
+- **Frontend**: http://localhost:3000
+- **Admin Dashboard**: http://localhost:3000/admin/microservices
+- **API Health**: http://localhost:3000/api/microservices/health
+
+#### Microservice Endpoints
+- **Workflow Engine**: http://localhost:8001/docs
+- **Agent Runtime**: http://localhost:8002/docs  
+- **MCP Server**: http://localhost:8003/docs
+- **A2A Service**: http://localhost:8004/docs
+- **AI Orchestrator**: http://localhost:8005/docs
 
 ---
 
