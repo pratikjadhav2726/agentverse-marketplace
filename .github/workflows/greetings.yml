@@ -1,0 +1,36 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            👋 Thanks for opening your first issue in AgentVerse Marketplace! 
+            
+            We appreciate you taking the time to contribute. A maintainer will review your issue soon.
+            
+            In the meantime, please make sure you've provided all the necessary information and 
+            checked our [Contributing Guidelines](https://github.com/agentverse/marketplace/blob/main/CONTRIBUTING.md).
+            
+            Welcome to the community! 🎉
+          pr-message: |
+            👋 Thanks for opening your first pull request in AgentVerse Marketplace! 
+            
+            We appreciate your contribution. A maintainer will review your PR soon.
+            
+            Please make sure:
+            - ✅ Your code follows our coding standards
+            - ✅ All tests pass
+            - ✅ You've updated the documentation if needed
+            - ✅ Your PR description clearly explains the changes
+            
+            Welcome to the community! 🎉
