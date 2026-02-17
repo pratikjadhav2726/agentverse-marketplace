@@ -1,12 +1,42 @@
 {
-  "name": "my-v0-project",
+  "name": "agentverse-marketplace",
   "version": "0.1.0",
-  "private": true,
+  "description": "A next-generation platform for developing, deploying, discovering, and collaborating with AI agents",
+  "author": "AgentVerse Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentverse/marketplace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agentverse/marketplace/issues"
+  },
+  "homepage": "https://github.com/agentverse/marketplace#readme",
+  "keywords": [
+    "ai",
+    "agents",
+    "marketplace",
+    "a2a-protocol",
+    "mcp",
+    "machine-learning",
+    "nextjs",
+    "typescript",
+    "react"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "private": false,
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "lint:fix": "next lint --fix",
+    "start": "next start",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
