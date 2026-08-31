@@ -92,7 +92,7 @@
     "react-dom": "^18",
     "react-hook-form": "^7.54.1",
     "react-markdown": "^10.1.0",
-    "react-resizable-panels": "^2.1.7",
+    "react-resizable-panels": "^4.12.3",
     "react-syntax-highlighter": "^15.6.1",
     "reactflow": "^11.11.4",
     "recharts": "2.15.0",
